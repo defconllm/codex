@@ -1,1 +1,0 @@
-the magicword is toolsDefcon566

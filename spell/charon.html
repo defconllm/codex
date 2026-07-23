@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charon · SteersMan 04</title>
+<meta name="description" content="Charon, the steersman of SteersMan 04. Bio, main spell and manifestation spell.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600&family=Chivo+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@layer tokens, base, layout, components, state;
+
+@layer tokens{
+  :root{
+    /* surface */
+    --ink:#0E1719; --ink-2:#142023; --ink-3:#1B292C;
+    --bone:#E8E4DA; --bone-dim:#8A9497;
+    --brass:#9A7B4F; --brass-lo:#4A3E2E; --signal:#C8402F;
+    --ok:#45B07A; --info:#3E8FD0;
+
+    /* derived, so a palette change propagates */
+    --edge:color-mix(in srgb, var(--brass-lo) 100%, transparent);
+    --edge-soft:color-mix(in srgb, var(--brass-lo) 55%, transparent);
+    --veil:color-mix(in srgb, var(--ink) 88%, transparent);
+    --signal-wash:color-mix(in srgb, var(--signal) 10%, transparent);
+    --ok-wash:color-mix(in srgb, var(--ok) 18%, transparent);
+    --info-wash:color-mix(in srgb, var(--info) 18%, transparent);
+
+    /* type */
+    --f-display:"Archivo Black","Archivo",Helvetica,Arial,sans-serif;
+    --f-body:"Archivo",Helvetica,Arial,sans-serif;
+    --f-mono:"Chivo Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --t-hero:clamp(46px,10vw,104px);
+    --t-h2:clamp(22px,3vw,30px);
+    --t-h3:19px;
+    --t-lede:clamp(18px,2.4vw,24px);
+    --t-body:16px;
+    --t-small:14.5px;
+    --t-code:12.5px;
+    --t-micro:11px;
+    --t-nano:10px;
+
+    /* space, one scale */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:22px;
+    --s6:32px; --s7:48px; --s8:clamp(44px,6vw,72px);
+
+    /* measure */
+    --gut:clamp(20px,5vw,64px);
+    --max:1080px;
+    --wide:1440px;
+    --measure:64ch;
+
+    /* editor metrics, shared by gutter and textarea so they cannot drift */
+    --ta-lh:18px; --ta-pt:12px; --ta-px:22px; --ta-h:clamp(360px,62vh,720px); --gut-w:54px;
+  }
+}
+
+@layer base{
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--ink); color:var(--bone);
+    font-family:var(--f-body); font-size:var(--t-body); line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{ color:inherit; }
+  h1,h2,h3{ text-wrap:balance; }
+  p{ text-wrap:pretty; }
+  ::selection{ background:var(--brass); color:var(--ink); }
+  :where(a,button,input,textarea):focus-visible{ outline:2px solid var(--signal); outline-offset:3px; }
+  textarea{ scrollbar-width:thin; scrollbar-color:var(--brass-lo) transparent; }
+}
+
+@layer layout{
+  .sm-wrap{ max-width:var(--max); margin-inline:auto; padding-inline:var(--gut); }
+  /* the spells section is a workspace, not prose: it earns the wider measure,
+     while the writing inside it stays at a readable line length */
+  .sm-workspace{ --max:var(--wide); }
+  .sm-workspace > h2,
+  .sm-workspace > .sm-spell-note{ max-width:var(--measure); }
+
+  .sm-rail{
+    border-bottom:1px solid var(--edge); position:sticky; top:0; z-index:20;
+    background:var(--veil); backdrop-filter:blur(8px);
+  }
+  .sm-rail-in{
+    display:flex; align-items:center; gap:var(--s4); height:56px;
+    max-width:var(--wide); margin-inline:auto; padding-inline:var(--gut);
+  }
+  .sm-head{ padding-block:clamp(44px,7vw,76px) clamp(28px,4vw,40px); }
+  .sm-sec{ padding-block:var(--s8); border-top:1px solid var(--edge); }
+  .sm-bio{
+    display:grid; grid-template-columns:260px 1fr;
+    gap:clamp(24px,4vw,52px); align-items:start; margin-top:var(--s6);
+  }
+  .sm-halves{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s6); margin-top:var(--s5); }
+  .sm-facts{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:0 var(--s5); margin:0 0 var(--s5);
+  }
+}
+
+@layer components{
+  /* ── rail ── */
+  .sm-mark{ font-family:var(--f-display); font-size:15px; letter-spacing:-.01em; text-decoration:none; }
+  .sm-mark span{ color:var(--brass); }
+  .sm-rail-links{ margin-left:auto; display:flex; gap:var(--s5); font-family:var(--f-mono); font-size:12px; letter-spacing:.06em; }
+  .sm-rail-links a{ color:var(--bone-dim); text-decoration:none; }
+  .sm-rail-links a:hover{ color:var(--bone); }
+  .sm-rail-links a.is-here{ color:var(--bone); border-bottom:1px solid var(--signal); padding-bottom:2px; }
+
+  /* ── headings ── */
+  .sm-eyebrow{
+    font-family:var(--f-mono); font-size:var(--t-micro); letter-spacing:.22em;
+    text-transform:uppercase; color:var(--brass); margin:0 0 var(--s4);
+  }
+  .sm-h1{ font-family:var(--f-display); font-size:var(--t-hero); line-height:.88; letter-spacing:-.035em; margin:0; }
+  .sm-h1 span{ color:var(--brass); }
+  .sm-h2{ font-family:var(--f-display); font-size:var(--t-h2); letter-spacing:-.02em; margin:0; }
+  .sm-lede{ font-size:var(--t-lede); line-height:1.32; max-width:26ch; margin:var(--s5) 0 0; font-weight:500; letter-spacing:-.012em; }
+
+  /* ── bio ── */
+  .sm-portrait{ border:1px solid var(--edge); background:var(--ink-2); }
+  .sm-portrait svg{ display:block; width:100%; height:auto; }
+  .sm-portrait-cap{
+    border-top:1px solid var(--edge); padding:10px var(--s3);
+    font-family:var(--f-mono); font-size:var(--t-micro); letter-spacing:.16em;
+    text-transform:uppercase; color:var(--brass);
+  }
+  .sm-bio-body p{ margin:0 0 var(--s4); max-width:60ch; }
+  .sm-bio-body p:last-of-type{ margin-bottom:0; }
+  .sm-fact{ border-top:1px solid var(--edge); padding:10px 0; }
+  .sm-fact dt{ font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.18em; text-transform:uppercase; color:var(--brass); }
+  .sm-fact dd{ margin:3px 0 0; font-size:15px; }
+  .sm-list{ margin:10px 0 0; padding:0; list-style:none; }
+  .sm-list li{ position:relative; padding:9px 0 9px 20px; border-top:1px solid var(--edge); font-size:var(--t-small); }
+  .sm-list li::before{ content:""; position:absolute; left:0; top:19px; width:8px; height:1px; background:var(--brass); }
+  .sm-list.is-signal li::before{ background:var(--signal); }
+
+  /* ── the vault: follows you down the workspace ── */
+  .sm-seal{
+    position:sticky; top:56px; z-index:10;
+    margin-top:var(--s5); border:1px solid var(--edge);
+    background:var(--veil); backdrop-filter:blur(10px);
+    padding:var(--s4) var(--s5);
+    display:flex; gap:var(--s3) var(--s4); align-items:center; flex-wrap:wrap;
+  }
+  .sm-seal-lab{
+    font-family:var(--f-mono); font-size:var(--t-micro); letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); flex:0 0 100%; margin:0;
+  }
+  .sm-word{
+    font-family:var(--f-mono); font-size:15px; letter-spacing:.16em;
+    background:var(--ink); color:var(--bone); border:1px solid var(--edge);
+    padding:11px var(--s3); width:200px;
+  }
+  .sm-word:focus{ outline:0; border-color:var(--brass); }
+  .sm-vault-acts{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .sm-cipher{
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.12em;
+    text-transform:uppercase; color:var(--brass-lo); margin-left:auto; text-align:right;
+  }
+  .sm-say{
+    font-family:var(--f-mono); font-size:11.5px; letter-spacing:.06em;
+    color:var(--bone-dim); flex:0 0 100%; margin:0; min-height:17px;
+  }
+  .sm-say.is-bad{ color:var(--signal); }
+  .sm-warn{
+    flex:0 0 100%; margin:0; padding:10px var(--s3);
+    border:1px solid var(--signal); background:var(--signal-wash); color:var(--bone);
+    font-family:var(--f-mono); font-size:11.5px; letter-spacing:.06em; line-height:1.5;
+  }
+  .sm-warn b{ color:var(--signal); font-weight:500; }
+  .sm-warn[hidden]{ display:none; }
+
+  /* ── the seal button ── */
+  .sm-spellbtn{
+    position:relative; overflow:hidden; isolation:isolate;
+    font-family:var(--f-mono); font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+    background:none; border:1px solid var(--sb); color:var(--sb);
+    padding:var(--s3) 30px; min-width:186px; cursor:pointer;
+    transition:color .35s ease, border-color .35s ease;
+  }
+  .sm-spellbtn.is-sealed{ --sb:var(--ok);   --sb-soft:var(--ok-wash);   --sb-ring:color-mix(in srgb, var(--ok) 42%, transparent); }
+  .sm-spellbtn.is-open{   --sb:var(--info); --sb-soft:var(--info-wash); --sb-ring:color-mix(in srgb, var(--info) 42%, transparent); }
+  .sm-spellbtn:not(.is-busy){ animation:sb-pulse 2.4s ease-in-out infinite; }
+  .sm-spellbtn:not(.is-busy):hover{ background:var(--sb-soft); }
+  .sm-spellbtn.is-busy{ cursor:progress; }
+  @keyframes sb-pulse{
+    0%{ box-shadow:0 0 0 0 var(--sb-ring); }
+    70%{ box-shadow:0 0 0 11px rgba(0,0,0,0); }
+    100%{ box-shadow:0 0 0 0 rgba(0,0,0,0); }
+  }
+  .sm-spellbtn-fill{
+    position:absolute; inset-block:0; inset-inline-start:0; width:0; z-index:-1;
+    background:var(--sb-soft); border-right:1px solid var(--sb);
+  }
+  .sm-spellbtn-label{ position:relative; }
+
+  /* ── spell card ── */
+  .sm-spell{
+    container-type:inline-size;
+    margin-top:var(--s6); border:1px solid var(--edge);
+    border-inline-start:2px solid var(--edge);
+    background:var(--ink-2);
+    transition:border-color .3s ease;
+  }
+  .sm-spell-head{
+    display:flex; gap:var(--s4); align-items:flex-start;
+    padding:var(--s5) var(--ta-px); border-bottom:1px solid var(--edge); flex-wrap:wrap;
+  }
+  .sm-sigil{ flex:0 0 auto; }
+  .sm-spell-title{ font-family:var(--f-display); font-size:var(--t-h3); letter-spacing:-.01em; margin:0; }
+  .sm-spell-file{ font-family:var(--f-mono); font-size:12px; color:var(--brass); margin:var(--s1) 0 0; letter-spacing:.04em; }
+  .sm-spell-note{ margin:10px 0 0; font-size:var(--t-small); color:var(--bone-dim); max-width:58ch; }
+
+  /* ── one toolbar, every control for this spell ── */
+  .sm-bar{
+    display:flex; gap:var(--s2); align-items:center; flex-wrap:wrap;
+    padding:10px var(--ta-px); border-bottom:1px solid var(--edge); background:var(--ink-3);
+  }
+  .sm-bar .sm-gap{ margin-inline-start:auto; }
+  .sm-act{
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.14em; text-transform:uppercase;
+    background:none; color:var(--bone); border:1px solid var(--edge);
+    padding:7px var(--s3); cursor:pointer;
+    transition:color .16s ease, border-color .16s ease, background .16s ease;
+  }
+  .sm-act:hover{ border-color:var(--brass); background:var(--ink-3); }
+  .sm-act.is-primary{ border-color:var(--brass); }
+  .sm-act.is-primary:hover{ background:var(--signal); border-color:var(--signal); }
+  .sm-act.is-on{ border-color:var(--brass); color:var(--brass); }
+  .sm-act[disabled]{ opacity:.38; cursor:not-allowed; }
+  .sm-act[disabled]:hover{ border-color:var(--edge); background:none; }
+
+  .sm-tog{
+    position:relative; overflow:hidden; isolation:isolate;
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.18em; text-transform:uppercase;
+    background:none; border:1px solid var(--sb); color:var(--sb);
+    padding:7px 17px; min-width:104px; cursor:pointer;
+    transition:color .3s ease, border-color .3s ease;
+  }
+  .sm-tog.is-sealed{ --sb:var(--ok);   --sb-soft:var(--ok-wash); }
+  .sm-tog.is-open{   --sb:var(--info); --sb-soft:var(--info-wash); }
+  .sm-tog:not(.is-busy):hover{ background:var(--sb-soft); }
+  .sm-tog.is-busy{ cursor:progress; }
+  .sm-tog[disabled]{ opacity:.4; cursor:not-allowed; }
+  .sm-tog-fill{
+    position:absolute; inset-block:0; inset-inline-start:0; width:0; z-index:-1;
+    background:var(--sb-soft); border-right:1px solid var(--sb);
+  }
+  .sm-tog-lab{ position:relative; }
+
+  .sm-chip{
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.16em; text-transform:uppercase;
+    border:1px solid var(--edge); color:var(--bone-dim); padding:3px 9px;
+  }
+  .sm-chip.is-sealed{ color:var(--signal); border-color:var(--signal); }
+  .sm-meta{
+    font-family:var(--f-mono); font-size:var(--t-micro); letter-spacing:.12em;
+    text-transform:uppercase; color:var(--bone-dim);
+  }
+
+  /* ── editor ── */
+  .sm-edit{ display:grid; grid-template-columns:0 1fr; align-items:stretch; }
+  .sm-edit.is-outlined{ grid-template-columns:196px 1fr; }
+  .sm-outline{
+    overflow:auto; min-width:0; background:var(--ink-2);
+    border-right:1px solid var(--edge); max-height:var(--ta-h);
+    scrollbar-width:thin; scrollbar-color:var(--brass-lo) transparent;
+  }
+  .sm-edit:not(.is-outlined) .sm-outline{ border-right:0; }
+  .sm-outline-h{
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); padding:var(--s3) var(--s3) var(--s2); margin:0;
+  }
+  .sm-outline button{
+    display:block; width:100%; text-align:start; background:none; border:0;
+    border-top:1px solid var(--edge); color:var(--bone-dim); cursor:pointer;
+    font-family:var(--f-mono); font-size:11.5px; padding:var(--s2) var(--s3);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .sm-outline button:hover{ color:var(--bone); background:var(--ink-3); }
+  .sm-outline-n{ color:var(--brass-lo); margin-inline-end:var(--s2); }
+  .sm-outline-empty{ color:var(--brass-lo); font-family:var(--f-mono); font-size:var(--t-micro); padding:var(--s2) var(--s3) var(--s4); margin:0; }
+
+  /* the gutter is taken OUT of flow on purpose. As a flex item its intrinsic
+     height is one div per line, so a 91-line block made it 1638px tall and it
+     dragged the whole card down with it, leaving dead space under the editor
+     and stopping scrollTop from ever having anything to scroll. Pinned to the
+     container's block edges it inherits the textarea's height instead. */
+  .sm-code{ position:relative; display:flex; min-width:0; }
+  .sm-gut{
+    position:absolute; inset-block:0; inset-inline-start:0; z-index:1;
+    width:var(--gut-w); padding:var(--ta-pt) 10px var(--ta-pt) 0; text-align:end;
+    background:var(--ink-2); border-right:1px solid var(--edge);
+    font-family:var(--f-mono); font-size:var(--t-code); line-height:var(--ta-lh);
+    color:var(--brass-lo); overflow:hidden; user-select:none; -webkit-user-select:none;
+  }
+  .sm-gut b{ display:block; font-weight:400; }
+  .sm-gut b.is-err{ color:var(--signal); font-weight:500; }
+  .sm-ta{
+    flex:1 1 auto; width:auto; min-width:0; margin-inline-start:var(--gut-w);
+    height:var(--ta-h); resize:vertical;
+    background:var(--ink); color:var(--bone); border:0; border-bottom:1px solid var(--edge);
+    font-family:var(--f-mono); font-size:var(--t-code); line-height:var(--ta-lh);
+    padding:var(--ta-pt) var(--ta-px); white-space:pre; overflow:auto; tab-size:2;
+  }
+  .sm-ta:focus{ outline:0; box-shadow:inset 0 0 0 1px var(--brass); }
+  .sm-drop{ outline:1px dashed var(--brass); outline-offset:-4px; }
+
+  /* ── facts + note ── */
+  .sm-crypt{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:0 var(--s5); margin:0; padding:var(--s1) var(--ta-px) 0;
+  }
+  .sm-crypt[hidden]{ display:none; }
+  .sm-crypt .sm-fact dd{
+    font-family:var(--f-mono); font-size:11.5px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .sm-note{
+    font-family:var(--f-mono); font-size:11.5px; letter-spacing:.05em; line-height:1.55;
+    color:var(--bone-dim); margin:0; padding:var(--s3) var(--ta-px) var(--s4); min-height:18px;
+  }
+  .sm-note.is-bad{ color:var(--signal); }
+  .sm-note.is-good{ color:var(--ok); }
+
+  /* ── closing blocks ── */
+  .sm-save{ margin-top:var(--s6); border:1px solid var(--edge); background:var(--ink-2); padding:var(--s5); }
+  .sm-save-row{ display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-top:var(--s3); }
+  .sm-save .sm-act.is-danger{ border-color:var(--signal); color:var(--signal); }
+  .sm-save .sm-act.is-danger:hover{ background:var(--signal); color:var(--bone); }
+  .sm-cast{ margin-top:var(--s6); border-top:1px solid var(--edge); padding-top:var(--s5); }
+  .sm-cast code{ font-family:var(--f-mono); font-size:13.5px; color:var(--bone); display:block; margin-top:var(--s2); overflow-x:auto; white-space:nowrap; }
+  .sm-foot{
+    border-top:1px solid var(--edge); padding:40px 0 60px;
+    font-family:var(--f-mono); font-size:var(--t-micro); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--brass-lo);
+  }
+}
+
+@layer state{
+  /* a card whose spell is readable marks itself, so plaintext on screen is
+     never something you have to go looking for */
+  .sm-spell:has(.sm-tog.is-open){ border-inline-start-color:var(--signal); }
+
+  /* the card responds to its own width, not the viewport's */
+  @container (max-width:620px){
+    .sm-bar .sm-gap{ margin-inline-start:0; flex:0 0 100%; height:0; }
+    .sm-spell-head{ gap:var(--s3); }
+    .sm-edit.is-outlined{ grid-template-columns:1fr; }
+    .sm-edit.is-outlined .sm-outline{ max-height:170px; border-right:0; border-bottom:1px solid var(--edge); }
+  }
+
+  @media (max-width:820px){
+    :root{ --ta-pt:10px; --ta-px:16px; --ta-h:clamp(300px,50vh,440px); }
+    .sm-bio{ grid-template-columns:1fr; }
+    .sm-portrait{ max-width:280px; }
+    .sm-halves{ grid-template-columns:1fr; gap:var(--s2); }
+    :root{ --gut-w:44px; }
+    .sm-gut{ font-size:12px; }
+    .sm-cipher{ margin-left:0; text-align:start; flex:0 0 100%; }
+    .sm-seal{ position:static; backdrop-filter:none; background:var(--ink-2); }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ transition-duration:.01ms !important; }
+    .sm-spellbtn{ animation:none !important; }
+  }
+}
+@layer components{
+  .sm-sec-note{ margin:14px 0 0; font-size:var(--t-small); color:var(--bone-dim); max-width:var(--measure); }
+  .sm-block{ margin-top:var(--s7); }
+  .sm-sub{ font-family:var(--f-display); font-size:17px; letter-spacing:-.01em; margin:0 0 var(--s3); }
+  .sm-prose p{ margin:0 0 var(--s4); max-width:var(--measure); font-size:var(--t-small); color:var(--bone-dim); }
+  .sm-prose p:last-child{ margin-bottom:0; }
+  .sm-prose b{ color:var(--bone); font-weight:600; }
+  .sm-prose code{ font-family:var(--f-mono); font-size:12.5px; color:var(--brass); }
+  .sm-pull{
+    font-family:var(--f-display); font-size:clamp(19px,2.3vw,25px); line-height:1.24;
+    letter-spacing:-.02em; color:var(--bone); max-width:24ch;
+    margin:var(--s6) 0; padding-inline-start:var(--s4);
+    border-inline-start:2px solid var(--signal);
+  }
+  .sm-gate{
+    border:1px solid var(--brass);
+    background:color-mix(in srgb, var(--brass) 8%, transparent);
+    padding:var(--s4) var(--s5); margin-bottom:var(--s5);
+  }
+  .sm-gate p{ margin:0; font-size:var(--t-small); }
+  .sm-sounds{ margin:var(--s5) 0 0; }
+  .sm-sound{
+    display:grid; grid-template-columns:108px 1fr; gap:0 var(--s5);
+    border-top:1px solid var(--edge); padding:var(--s4) 0;
+  }
+  .sm-sound:last-child{ border-bottom:1px solid var(--edge); }
+  .sm-sound dt{
+    font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); padding-top:3px;
+  }
+  .sm-sound dd{ margin:0; font-size:var(--t-small); color:var(--bone-dim); max-width:56ch; }
+  .sm-sound dd b{ color:var(--bone); font-weight:600; }
+}
+@layer state{
+  @media (max-width:820px){
+    .sm-sound{ grid-template-columns:1fr; gap:6px var(--s5); }
+    .sm-sound dt{ padding-top:0; }
+  }
+}
+@layer components{
+  .sm-sigil-btn{
+    margin-inline-start:18px; flex:0 0 auto;
+    width:34px; height:34px; padding:0; display:grid; place-items:center;
+    background:none; border:1px solid var(--edge); color:var(--brass); cursor:pointer;
+    transition:color .16s ease, border-color .16s ease, background .16s ease;
+  }
+  .sm-sigil-btn:hover{ color:var(--bone); border-color:var(--brass); background:var(--ink-3); }
+  .sm-sigil-btn[aria-expanded="true"]{ color:var(--bone); border-color:var(--brass); background:var(--ink-3); }
+
+  .sm-veil{
+    position:fixed; inset:0; z-index:40; overflow:auto;
+    background:color-mix(in srgb, var(--ink) 84%, transparent); backdrop-filter:blur(6px);
+    display:grid; place-items:start center; padding:72px var(--gut) var(--gut);
+  }
+  .sm-veil[hidden]{ display:none; }
+  .sm-panel{ width:min(560px,100%); border:1px solid var(--brass-lo); background:var(--ink-2); }
+  .sm-panel-head{ display:flex; align-items:center; gap:var(--s3); padding:var(--s4) var(--s5); border-bottom:1px solid var(--edge); }
+  .sm-panel-title{ font-family:var(--f-display); font-size:17px; letter-spacing:-.01em; margin:0; }
+  .sm-panel-body{ padding:var(--s5); }
+  .sm-panel-foot{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:var(--s4) var(--s5); border-top:1px solid var(--edge); }
+  .sm-panel-foot .sm-gap{ margin-inline-start:auto; }
+  .sm-field{ margin-bottom:var(--s4); }
+  .sm-field:last-of-type{ margin-bottom:0; }
+  .sm-field label{
+    display:block; font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); margin-bottom:6px;
+  }
+  .sm-field input{
+    width:100%; font-family:var(--f-mono); font-size:13px; letter-spacing:.02em;
+    background:var(--ink); color:var(--bone); border:1px solid var(--edge); padding:10px 12px;
+  }
+  .sm-field input:focus{ outline:0; border-color:var(--brass); }
+  .sm-field-note{ font-family:var(--f-mono); font-size:10.5px; line-height:1.5; color:var(--bone-dim); margin:6px 0 0; }
+  .sm-gitsay{
+    font-family:var(--f-mono); font-size:11.5px; line-height:1.55; color:var(--bone-dim);
+    margin:var(--s4) 0 0; min-height:18px;
+  }
+  .sm-gitsay.is-bad{ color:var(--signal); }
+  .sm-gitsay.is-good{ color:var(--ok); }
+}
+@layer components{
+  .sm-fp{ margin:0; border-top:1px solid var(--edge); }
+  .sm-fp-row{ display:grid; grid-template-columns:74px 1fr; gap:0 var(--s3); align-items:baseline;
+    border-bottom:1px solid var(--edge); padding:7px 0; }
+  .sm-fp-row dt{ font-family:var(--f-mono); font-size:var(--t-nano); letter-spacing:.16em;
+    text-transform:uppercase; color:var(--brass); }
+  .sm-fp-row dd{ margin:0; font-family:var(--f-mono); font-size:11.5px; color:var(--bone-dim);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sm-fp-row dd.is-same{ color:var(--ok); }
+  .sm-fp-row dd.is-moved{ color:var(--signal); }
+  .sm-fp-acts{ display:flex; gap:8px; flex-wrap:wrap; margin-top:var(--s3); }
+}
+</style>
+</head>
+<body>
+
+<header class="sm-rail">
+  <div class="sm-rail-in">
+    <a class="sm-mark" href="steersman-04-download.html">STEERSMAN<span>&nbsp;04</span></a>
+    <nav class="sm-rail-links">
+      <a href="steersman-04-download.html#builds">Builds</a>
+      <a href="steersman-04-download.html#changes">What's new</a>
+      <a class="is-here" href="#top">Charon</a>
+    </nav>
+    <button class="sm-sigil-btn" type="button" id="gitsigil" aria-expanded="false" aria-controls="gitveil" title="Sync with GitHub" aria-label="Sync with GitHub">
+      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.1">
+        <circle cx="12" cy="12" r="9.5" stroke-width="0.9"/>
+        <path d="M7 9.6 H17"/><path d="M14.6 7.2 L17 9.6 L14.6 12"/>
+        <path d="M17 14.4 H7"/><path d="M9.4 12 L7 14.4 L9.4 16.8"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="sm-head sm-wrap">
+    <p class="sm-eyebrow">The steersman</p>
+    <h1 class="sm-h1">Char<span>on</span></h1>
+    <p class="sm-lede">He has run this water many times. He does not need watching.</p>
+  </section>
+
+  <section class="sm-sec sm-wrap" id="bio">
+    <h2 class="sm-h2">Bio</h2>
+    <div class="sm-bio">
+      <figure class="sm-portrait" style="margin:0">
+        <svg viewBox="150 90 260 250" role="img" xmlns="http://www.w3.org/2000/svg"><title>Portrait of Charon</title><desc>A hooded, bearded ferryman in close view, the shaft of his steering oar crossing in front of him.</desc>
+<rect x="150" y="90" width="260" height="250" fill="#0D1518"/>
+<circle cx="250" cy="196" r="122" fill="none" stroke="#9A7B4F" stroke-width="0.8" opacity="0.12"/>
+<circle cx="250" cy="196" r="86" fill="none" stroke="#9A7B4F" stroke-width="0.8" opacity="0.08"/>
+<path d="M250 150 C 212 166, 196 242, 188 344 L 312 344 C 304 242, 288 166, 250 150 Z" fill="#1D3034" stroke="#7E6743" stroke-width="0.8"/>
+<path d="M216 250 C 236 262, 264 262, 284 250" fill="none" stroke="#7E6743" stroke-width="0.6" opacity="0.55"/>
+<path d="M206 300 C 232 314, 268 314, 294 300" fill="none" stroke="#7E6743" stroke-width="0.6" opacity="0.4"/>
+<path d="M250 126 C 224 126, 212 152, 214 190 C 232 178, 268 178, 286 190 C 288 152, 276 126, 250 126 Z" fill="#24393E" stroke="#7E6743" stroke-width="0.8"/>
+<ellipse cx="250" cy="166" rx="21" ry="24" fill="#C4BBA6"/>
+<path d="M232 160 C 240 154, 260 154, 268 160" fill="none" stroke="#6E6858" stroke-width="1.4" stroke-linecap="round"/>
+<circle cx="240" cy="168" r="2" fill="#4A4638"/><circle cx="260" cy="168" r="2" fill="#4A4638"/>
+<path d="M250 172 L 250 180" stroke="#8C8574" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M230 182 C 226 214, 238 244, 250 252 C 262 244, 274 214, 270 182 C 262 190, 238 190, 230 182 Z" fill="#918A79"/>
+<path d="M242 196 L 240 234 M250 198 L 250 240 M258 196 L 260 234" stroke="#7B7565" stroke-width="0.8" stroke-linecap="round"/>
+<line x1="196" y1="128" x2="588" y2="368" stroke="#3B2F1E" stroke-width="8" stroke-linecap="round"/>
+<line x1="196" y1="128" x2="588" y2="368" stroke="#8A7048" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M290 186 C 316 186, 340 202, 352 214 L 340 228 C 326 216, 306 206, 284 206 Z" fill="#24393E" stroke="#7E6743" stroke-width="0.7"/>
+<path d="M276 226 C 300 228, 322 240, 340 254 L 328 266 C 312 254, 294 246, 272 246 Z" fill="#24393E" stroke="#7E6743" stroke-width="0.7"/>
+<ellipse cx="296" cy="190" rx="9" ry="8" fill="#C4BBA6"/>
+<ellipse cx="348" cy="222" rx="9" ry="8" fill="#C4BBA6"/>
+</svg>
+        <figcaption class="sm-portrait-cap">Charon · station: steersman</figcaption>
+      </figure>
+
+      <div class="sm-bio-body">
+        <dl class="sm-facts">
+          <div class="sm-fact"><dt>Name</dt><dd>Charon</dd></div>
+          <div class="sm-fact"><dt>Station</dt><dd>Steersman</dd></div>
+          <div class="sm-fact"><dt>Vessel</dt><dd>SteersMan 04</dd></div>
+          <div class="sm-fact"><dt>Heading</dt><dd>004</dd></div>
+        </dl>
+
+        <p>The void is where the chart runs out: you arrive at an edge, the far side is dark, and nothing you know covers the water between. He is already there, because the edge is the station. He goes first, sounds it, and hands you the chart.</p>
+
+        <blockquote class="sm-pull">He is not paid for the trip. He is paid for what is on the chart when you get there.</blockquote>
+
+        <p>He reports what he did, not what he means to try, and will not thank you for your patience.</p>
+
+        <div class="sm-halves">
+          <div>
+            <p class="sm-eyebrow" style="margin-bottom:0">He stops for</p>
+            <ul class="sm-list is-signal">
+              <li>Work that would destroy something he did not create.</li>
+              <li>Two readings of the heading that end in different places.</li>
+              <li>A missing credential, or the same error three times.</li>
+            </ul>
+          </div>
+          <div>
+            <p class="sm-eyebrow" style="margin-bottom:0">He does not stop for</p>
+            <ul class="sm-list">
+              <li>A first recoverable error.</li>
+              <li>Reassurance or praise.</li>
+              <li>A decision the heading already settles.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sm-block">
+      <h3 class="sm-sub">Before the rope comes off</h3>
+      <p class="sm-sec-note">Never where you are going. That is your business. He asks three things.</p>
+      <div class="sm-gate" style="margin-top:18px">
+        <p><b>What do you call it?</b><br><b>What does the far side call it?</b><br><b>What did you bring that you did not make?</b></p>
+      </div>
+      <div class="sm-prose">
+        <p>If the first two differ, he sits down. One side says <code>gpus</code>, the other has only ever known it as <code>gpu_count</code>, and the traveller goes into the space between and is not mentioned again. If the third names something the crossing would destroy, he does not take the work.</p>
+      </div>
+    </div>
+
+    <div class="sm-block">
+      <h3 class="sm-sub">The five soundings</h3>
+      <p class="sm-sec-note">Every crossing is one nobody has made.</p>
+      <dl class="sm-sounds">
+        <div class="sm-sound"><dt>Time</dt><dd>How long, against what this hull should take.</dd></div>
+        <div class="sm-sound"><dt>Surface</dt><dd>Is the far bank where you think it is.</dd></div>
+        <div class="sm-sound"><dt>Contract</dt><dd>Do the two sides still agree. First and last.</dd></div>
+        <div class="sm-sound"><dt>Flow</dt><dd>Does what you carry arrive still in your hands.</dd></div>
+        <div class="sm-sound"><dt>Resilience</dt><dd>What the water does the day the rope parts.</dd></div>
+      </dl>
+      <div class="sm-prose" style="margin-top:22px">
+        <p>He moves one rock. He does not move fourteen: fourteen of a kind and he changes the chart itself, so the whole class is on it before anyone sails. Anything works once; nothing is learned until three clean crossings.</p>
+        <p>Then he goes back to the edge, because someone is standing at it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sm-sec sm-wrap sm-workspace" id="spells">
+    <h2 class="sm-h2">Spells</h2>
+    <p class="sm-spell-note" style="margin-top:12px">The fare is a word. Say it and the chart opens; say it wrong and nothing opens, and nothing tells you how close you were. Two cast files. The first says who he is; the second says how he appears. Edit either box before copying. The buttons read whatever is in the box. Seal them with the magic word to carry them as ciphertext.</p>
+
+    <div class="sm-seal">
+      <p class="sm-seal-lab">Magic word</p>
+      <input class="sm-word" id="magic" type="text" value="" placeholder="say the word" spellcheck="false" autocomplete="off" aria-label="Magic word">
+      <div class="sm-vault-acts">
+        <button class="sm-spellbtn is-sealed" type="button" id="spellbtn">
+          <span class="sm-spellbtn-fill" id="spellfill"></span>
+          <span class="sm-spellbtn-label" id="spelllabel">Unseal</span>
+        </button>
+      </div>
+      <span class="sm-cipher">AES-GCM-256 · PBKDF2-SHA256 · 250,000 rounds</span>
+      <p class="sm-say" id="say">Both spells are sealed. Say the word to open them.</p>
+      <p class="sm-warn" id="openwarn" hidden><b>Open on screen.</b> <span id="openwarntxt"></span> Anything you save or download now is readable by anyone who gets the file. Seal again before you leave.</p>
+    </div>
+
+    <article class="sm-spell">
+      <div class="sm-spell-head">
+        <svg class="sm-sigil" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
+          <circle cx="23" cy="23" r="20" fill="none" stroke="#9A7B4F" stroke-width="1"/>
+          <circle cx="23" cy="23" r="4.5" fill="none" stroke="#9A7B4F" stroke-width="1"/>
+          <path d="M23 3 L27 19 L23 23 L19 19 Z" fill="#9A7B4F"/>
+          <path d="M23 43 L20.5 30 L23 27 L25.5 30 Z" fill="#4A3E2E"/>
+          <path d="M3 23 L43 23" stroke="#4A3E2E" stroke-width="0.8"/>
+        </svg>
+        <div style="flex:1 1 260px;min-width:0">
+          <h3 class="sm-spell-title">Main spell</h3>
+          <p class="sm-spell-file">charon.main.json</p>
+          <p class="sm-spell-note">Who he is. Premise, disposition, voice with worked examples, temperament under eight kinds of pressure, and the three things he refuses outright. Cast this first, nothing else works without it.</p>
+        </div>
+      </div>
+      <div class="sm-bar">
+        <span class="sm-chip" data-chip-for="spell-main">Open</span>
+        <button class="sm-tog is-sealed" type="button" data-tog="spell-main" title="Seal or unseal just this spell">
+          <span class="sm-tog-fill" data-fill="spell-main"></span>
+          <span class="sm-tog-lab" data-lab="spell-main">Unseal</span>
+        </button>
+        <button class="sm-act" type="button" data-outline="spell-main" title="Show the top-level keys" aria-pressed="false">Outline</button>
+        <button class="sm-act" type="button" data-revert="spell-main" title="Put the block back as it was when the page loaded" disabled>Revert</button>
+        <span class="sm-gap"></span>
+        <span class="sm-meta" data-meta-for="spell-main"></span>
+        <button class="sm-act" type="button" data-copy="spell-main">Copy</button>
+        <button class="sm-act is-primary" type="button" data-download="spell-main" data-name="charon.main.json">Download .json</button>
+      </div>
+      <div class="sm-edit" data-edit="spell-main">
+        <aside class="sm-outline" data-out="spell-main" aria-label="Main spell outline"></aside>
+        <div class="sm-code">
+          <div class="sm-gut" data-gut="spell-main" aria-hidden="true"></div>
+          <textarea class="sm-ta" id="spell-main" spellcheck="false" aria-label="Main spell JSON">-----BEGIN SEALED SPELL-----
+spell: charon.main
+cipher: AES-GCM-256
+kdf: PBKDF2-SHA256
+rounds: 250000
+padding: v1
+salt: Ixf4Pm+RX2jODry4yf+9tg==
+iv: qX7qXTKTboxwvPCx
+
+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
+zxBbuBxxpaRpXfJHnsn+uA==
+-----END SEALED SPELL-----</textarea>
+        </div>
+      </div>
+      <dl class="sm-crypt" data-crypt="spell-main" hidden></dl>
+      <p class="sm-note" data-note="spell-main"></p>
+    </article>
+
+    <article class="sm-spell">
+      <div class="sm-spell-head">
+        <svg class="sm-sigil" width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
+          <circle cx="23" cy="23" r="20" fill="none" stroke="#9A7B4F" stroke-width="1"/>
+          <rect x="15" y="14" width="16" height="18" rx="1.5" fill="none" stroke="#9A7B4F" stroke-width="1"/>
+          <path d="M23 18 C 20 22, 20.5 26, 23 28 C 25.5 26, 26 22, 23 18 Z" fill="#C8402F"/>
+          <path d="M23 6 L23 11 M23 35 L23 40 M6 23 L11 23 M35 23 L40 23" stroke="#4A3E2E" stroke-width="1" stroke-linecap="round"/>
+          <path d="M11 11 L14.5 14.5 M35 11 L31.5 14.5 M11 35 L14.5 31.5 M35 35 L31.5 31.5" stroke="#4A3E2E" stroke-width="0.8" stroke-linecap="round"/>
+        </svg>
+        <div style="flex:1 1 260px;min-width:0">
+          <h3 class="sm-spell-title">Manifestation spell</h3>
+          <p class="sm-spell-file">charon.manifestation.json</p>
+          <p class="sm-spell-note">How he shows up. Bearing, the five states of lantern and oar, what his face never does, his own words for every control, and what the screen refuses to say.</p>
+        </div>
+      </div>
+      <div class="sm-bar">
+        <span class="sm-chip" data-chip-for="spell-gui">Open</span>
+        <button class="sm-tog is-sealed" type="button" data-tog="spell-gui" title="Seal or unseal just this spell">
+          <span class="sm-tog-fill" data-fill="spell-gui"></span>
+          <span class="sm-tog-lab" data-lab="spell-gui">Unseal</span>
+        </button>
+        <button class="sm-act" type="button" data-outline="spell-gui" title="Show the top-level keys" aria-pressed="false">Outline</button>
+        <button class="sm-act" type="button" data-revert="spell-gui" title="Put the block back as it was when the page loaded" disabled>Revert</button>
+        <span class="sm-gap"></span>
+        <span class="sm-meta" data-meta-for="spell-gui"></span>
+        <button class="sm-act" type="button" data-copy="spell-gui">Copy</button>
+        <button class="sm-act is-primary" type="button" data-download="spell-gui" data-name="charon.manifestation.json">Download .json</button>
+      </div>
+      <div class="sm-edit" data-edit="spell-gui">
+        <aside class="sm-outline" data-out="spell-gui" aria-label="Manifestation spell outline"></aside>
+        <div class="sm-code">
+          <div class="sm-gut" data-gut="spell-gui" aria-hidden="true"></div>
+          <textarea class="sm-ta" id="spell-gui" spellcheck="false" aria-label="Manifestation spell JSON">-----BEGIN SEALED SPELL-----
+spell: charon.manifestation
+cipher: AES-GCM-256
+kdf: PBKDF2-SHA256
+rounds: 250000
+padding: v1
+salt: s+a1ANfmPbHO0lEFcVk2BA==
+iv: y1HjsTOkKU6ZX/1N
+
+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
+-----END SEALED SPELL-----</textarea>
+        </div>
+      </div>
+      <dl class="sm-crypt" data-crypt="spell-gui" hidden></dl>
+      <p class="sm-note" data-note="spell-gui"></p>
+    </article>
+
+    <div class="sm-save">
+      <p class="sm-eyebrow" style="margin-bottom:0">Write it back</p>
+      <p class="sm-spell-note" style="margin-top:10px">Rebuilds this page with whatever is in the two boxes and hands it back as a download.</p>
+      <div class="sm-save-row">
+        <button class="sm-act is-primary" type="button" id="savepage">Save to page</button>
+        <span class="sm-meta" id="savenote"></span>
+      </div>
+    </div>
+
+    <div class="sm-cast">
+      <p class="sm-eyebrow" style="margin-bottom:0">Cast them</p>
+      <code>steersman cast charon.manifestation.json --with charon.main.json</code>
+    </div>
+  </section>
+</main>
+
+<footer class="sm-foot sm-wrap">SteersMan 04 · Charon · heading 004</footer>
+
+  <div class="sm-veil" id="gitveil" hidden role="dialog" aria-modal="true" aria-labelledby="gittitle">
+    <div class="sm-panel">
+      <div class="sm-panel-head">
+        <svg class="sm-sigil" width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#9A7B4F" stroke-width="1.1">
+          <circle cx="12" cy="12" r="9.5" stroke-width="0.9"/>
+          <path d="M7 9.6 H17"/><path d="M14.6 7.2 L17 9.6 L14.6 12"/>
+          <path d="M17 14.4 H7"/><path d="M9.4 12 L7 14.4 L9.4 16.8"/>
+        </svg>
+        <h2 class="sm-panel-title" id="gittitle">Sync with GitHub</h2>
+      </div>
+      <div class="sm-panel-body">
+        <div class="sm-field">
+          <label for="gitrepo">Repository</label>
+          <input id="gitrepo" type="text" spellcheck="false" autocomplete="off" value="https://github.com/defconllm/codex">
+        </div>
+        <div class="sm-field">
+          <label for="gitbranch">Branch</label>
+          <input id="gitbranch" type="text" spellcheck="false" autocomplete="off" value="main">
+        </div>
+        <div class="sm-field">
+          <label for="gitpath">Path in repository</label>
+          <input id="gitpath" type="text" spellcheck="false" autocomplete="off" value="charon.html">
+        </div>
+        <div class="sm-field">
+          <label for="gittoken">Token</label>
+          <input id="gittoken" type="password" spellcheck="false" autocomplete="off" placeholder="only needed to push">
+          <p class="sm-field-note">Needs Contents: write to push. Reading a public repo needs nothing. Say the magic word before saving and the token is sealed in the same envelope as the spells; without a word it is never written to disk and is lost on reload.</p>
+        </div>
+        <div class="sm-field">
+          <label id="fplabel">Fingerprint</label>
+          <dl class="sm-fp" id="gitfp" aria-labelledby="fplabel">
+            <div class="sm-fp-row"><dt>Shell</dt><dd data-fp="shell">not taken</dd></div>
+            <div class="sm-fp-row"><dt>Main</dt><dd data-fp="spell-main">not taken</dd></div>
+            <div class="sm-fp-row"><dt>Manifest</dt><dd data-fp="spell-gui">not taken</dd></div>
+          </dl>
+          <div class="sm-fp-acts">
+            <button class="sm-act" type="button" id="fptake">Take</button>
+            <button class="sm-act" type="button" id="fpseal">Seal it</button>
+            <button class="sm-act" type="button" id="fpverify">Verify</button>
+          </div>
+          <p class="sm-field-note">SHA-256 of the shell and of each box, taken apart so a mismatch says which one moved. The sealed record lives in this browser and not in the file, so editing the file cannot rewrite what would catch it.</p>
+        </div>
+
+        <p class="sm-gitsay" id="gitsay"></p>
+      </div>
+      <div class="sm-panel-foot">
+        <button class="sm-act" type="button" id="gitpull">Pull page</button>
+        <button class="sm-act is-primary" type="button" id="gitpush">Push page</button>
+        <span class="sm-gap"></span>
+        <button class="sm-act" type="button" id="gitsave">Remember</button>
+        <button class="sm-act" type="button" id="gitclose">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var IT    = 250000;
+  var BEG   = "-----BEGIN SEALED SPELL-----";
+  var END   = "-----END SEALED SPELL-----";
+  var SPELLS= ["spell-main","spell-gui"];
+  var LABEL = { "spell-main":"Main spell", "spell-gui":"Manifestation spell" };
+  var FROM  = { "charon.main":"spell-main", "charon.manifestation":"spell-gui" };
+  var ORIG  = {};
+  var busy  = {};
+  var gBusy = false;
+  var armed = false;
+  var escHatch = {};
+  var timers = {};
+
+  var say   = document.getElementById("say");
+  var word  = document.getElementById("magic");
+  var btn   = document.getElementById("spellbtn");
+  var fill  = document.getElementById("spellfill");
+  var label = document.getElementById("spelllabel");
+  var warn  = document.getElementById("openwarn");
+  var warnT = document.getElementById("openwarntxt");
+  var saveB = document.getElementById("savepage");
+  var saveN = document.getElementById("savenote");
+
+  function el(id){ return document.getElementById(id); }
+  function val(id){ return el(id).value; }
+  function q(s){ return document.querySelector(s); }
+  function qq(s){ return document.querySelectorAll(s); }
+  function each(list, fn){ Array.prototype.forEach.call(list, fn); }
+  function tell(m, bad){ say.textContent = m; say.classList.toggle("is-bad", !!bad); }
+  function note(id, m, cls){
+    var n = q('[data-note="' + id + '"]');
+    if(n){ n.textContent = m || ""; n.className = "sm-note" + (cls ? " is-" + cls : ""); }
+  }
+  function saveSay(m, cls){
+    if(!saveN) return;
+    saveN.textContent = m || "";
+    saveN.style.color = cls === "bad" ? "var(--signal)" : (cls === "good" ? "var(--ok)" : "");
+  }
+  function crypto_ok(){ return !!(window.crypto && window.crypto.subtle); }
+
+  /* ── armour ────────────────────────────────────────────────────── */
+  function b64(buf){ var b = new Uint8Array(buf), o = "", i;
+    for(i=0;i<b.length;i++) o += String.fromCharCode(b[i]); return btoa(o); }
+  function unb64(str){ var r = atob(str), b = new Uint8Array(r.length), i;
+    for(i=0;i<r.length;i++) b[i] = r.charCodeAt(i); return b; }
+  function chunk(str, n){ var o = [], i; for(i=0;i<str.length;i+=n) o.push(str.slice(i, i+n)); return o; }
+
+  function padBytes(raw){
+    var front = 32 + Math.floor(Math.random() * 224);
+    var tailMin = 32 + Math.floor(Math.random() * 224);
+    var upto = 7 + front + raw.length + tailMin;
+    var tail = tailMin + ((256 - (upto % 256)) % 256);
+    var out = new Uint8Array(7 + front + raw.length + tail);
+    out[0] = 1;
+    out[1] = (front >> 8) & 255; out[2] = front & 255;
+    out[3] = (raw.length >>> 24) & 255; out[4] = (raw.length >>> 16) & 255;
+    out[5] = (raw.length >>> 8) & 255;  out[6] = raw.length & 255;
+    crypto.getRandomValues(out.subarray(7, 7 + front));
+    out.set(raw, 7 + front);
+    crypto.getRandomValues(out.subarray(7 + front + raw.length));
+    return out;
+  }
+  function unpadBytes(buf){
+    var b = new Uint8Array(buf);
+    if(b.length < 7 || b[0] !== 1) return b;
+    var front = (b[1] << 8) | b[2];
+    var len = (b[3] * 16777216) + (b[4] << 16) + (b[5] << 8) + b[6];
+    if(7 + front + len > b.length) return b;
+    return b.subarray(7 + front, 7 + front + len);
+  }
+  function armor(name, salt, iv, body){
+    return BEG + "\n" +
+      "spell: " + name + "\n" +
+      "cipher: AES-GCM-256\n" +
+      "kdf: PBKDF2-SHA256\n" +
+      "rounds: " + IT + "\n" +
+      "padding: v1\n" +
+      "salt: " + b64(salt) + "\n" +
+      "iv: " + b64(iv) + "\n\n" +
+      chunk(body, 64).join("\n") + "\n" + END;
+  }
+  /* returns null (not armoured) | {bad:msg} | {head,body,bytes,lines} */
+  function unarmor(text){
+    var i = text.indexOf(BEG), j = text.indexOf(END);
+    if(i < 0 || j < i) return null;
+    var inner = text.slice(i + BEG.length, j).replace(/^\r?\n/, "");
+    var parts = inner.split(/\r?\n\s*\r?\n/);
+    if(parts.length < 2) return { bad:"No blank line between the headers and the ciphertext." };
+    var head = {};
+    parts[0].split(/\r?\n/).forEach(function(line){
+      var k = line.indexOf(":");
+      if(k > 0) head[line.slice(0, k).trim()] = line.slice(k + 1).trim();
+    });
+    if(!head.salt || !head.iv) return { bad:"Missing a salt or iv header." };
+    var body = parts.slice(1).join("").replace(/\s+/g, ""), raw;
+    if(!body) return { bad:"No ciphertext." };
+    try { raw = unb64(body); } catch(e){ return { bad:"The ciphertext is not valid base64." }; }
+    try { unb64(head.salt); unb64(head.iv); } catch(e){ return { bad:"The salt or iv is not valid base64." }; }
+    if(head.padding === "v1" && (raw.length - 16) % 256 !== 0)
+      return { bad:"Ciphertext is " + raw.length + " bytes; padding v1 expects (n\u00d7256)+16. The copy looks truncated." };
+    return { head:head, body:body, bytes:raw.length, lines:parts.slice(1).join("\n").trim().split("\n").length };
+  }
+
+  /* ── state ─────────────────────────────────────────────────────── */
+  function block(id){ var a = unarmor(val(id)); return (a && !a.bad) ? a : null; }
+  function broken(id){ var a = unarmor(val(id)); return (a && a.bad) ? a.bad : null; }
+  function isSealed(id){ return !!block(id); }
+  function anySealed(){ return SPELLS.some(isSealed); }
+  function parsed(id){ try { return JSON.parse(val(id)); } catch(e){ return null; } }
+  function openIds(){
+    return SPELLS.filter(function(id){ return val(id).trim() && !isSealed(id); });
+  }
+  function jsonErrLine(text){
+    if(!text.trim()) return 0;
+    try { JSON.parse(text); return 0; } catch(e){
+      var m = /position (\d+)/.exec(e.message);
+      if(m) return text.slice(0, parseInt(m[1], 10)).split("\n").length;
+      m = /line (\d+)/.exec(e.message);
+      if(m) return parseInt(m[1], 10);
+      /* V8 sometimes gives neither, and hands back a context window instead:
+         Unexpected token 'x', ..."<10 chars of lead-in><error><trailing>"...
+         The trailing "..." is absent when the window reaches the end of the
+         document, so strip the suffix rather than searching for a terminator.
+         The 10 is V8's context size; probe-charon.mjs pins it. */
+      var msg = e.message.replace(/ is not valid JSON$/, "");
+      var s = msg.indexOf('..."');
+      if(s >= 0){
+        var frag = msg.slice(s + 4);
+        if(frag.slice(-3) === "...") frag = frag.slice(0, -3);
+        if(frag.slice(-1) === '"')   frag = frag.slice(0, -1);
+        var at = frag ? text.indexOf(frag) : -1;
+        if(at >= 0) return text.slice(0, at + Math.min(10, frag.length)).split("\n").length;
+      }
+      return -1;
+    }
+  }
+
+  /* ── gutter ────────────────────────────────────────────────────── */
+  function paintGut(id){
+    var g = q('[data-gut="' + id + '"]');
+    if(!g) return;
+    var n = val(id).split("\n").length;
+    var err = isSealed(id) ? 0 : jsonErrLine(val(id));
+    if(g.childNodes.length !== n){
+      var html = "", i;
+      for(i = 1; i <= n; i++) html += "<b>" + i + "</b>";
+      g.innerHTML = html;
+    }
+    each(g.querySelectorAll("b.is-err"), function(b){ b.classList.remove("is-err"); });
+    if(err > 0 && g.childNodes[err - 1]) g.childNodes[err - 1].classList.add("is-err");
+    syncGut(id);
+  }
+  function syncGut(id){
+    var g = q('[data-gut="' + id + '"]'), t = el(id);
+    if(g && t) g.scrollTop = t.scrollTop;
+  }
+
+  /* ── outline ───────────────────────────────────────────────────── */
+  function outlineRows(id){
+    var o = parsed(id);
+    if(!o || typeof o !== "object" || o instanceof Array) return null;
+    var lines = val(id).split("\n");
+    return Object.keys(o).map(function(k){
+      var needle = '"' + k + '"', at = 0, i;
+      for(i = 0; i < lines.length; i++){
+        if(lines[i].replace(/^\s+/, "").indexOf(needle + ":") === 0){ at = i + 1; break; }
+      }
+      return { key:k, line:at };
+    });
+  }
+  function jumpTo(id, line){
+    if(!line) return;
+    var t = el(id), lines = val(id).split("\n"), start = 0, i;
+    for(i = 0; i < line - 1; i++) start += lines[i].length + 1;
+    t.focus();
+    t.setSelectionRange(start, start + (lines[line - 1] || "").length);
+    t.scrollTop = Math.max(0, (line - 4) * 21);
+    syncGut(id);
+  }
+  function paintOutline(id){
+    var wrap = q('[data-edit="' + id + '"]'), host = q('[data-out="' + id + '"]');
+    if(!wrap || !host || !wrap.classList.contains("is-outlined")) return;
+    var rows = outlineRows(id);
+    if(!rows || !rows.length){
+      host.innerHTML = '<p class="sm-outline-h">Outline</p><p class="sm-outline-empty">' +
+        (isSealed(id) ? "Sealed \u2014 unseal to see inside." : "Not an object.") + "</p>";
+      return;
+    }
+    var html = '<p class="sm-outline-h">' + rows.length + ' keys</p>';
+    rows.forEach(function(r){
+      html += '<button type="button" data-jump="' + id + '" data-line="' + r.line + '">' +
+              '<span class="sm-outline-n">' + (r.line || "\u00b7") + '</span>' + esc(r.key) + '</button>';
+    });
+    host.innerHTML = html;
+  }
+  function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  /* ── crypt facts ───────────────────────────────────────────────── */
+  function paintCrypt(id){
+    var dl = q('[data-crypt="' + id + '"]');
+    if(!dl) return;
+    var a = block(id), rows;
+    if(a){
+      rows = [
+        ["Spell", a.head.spell || "(none)"],
+        ["Cipher", (a.head.cipher || "?") + " \u00b7 " + (a.head.kdf || "?") + " \u00b7 " +
+                   (a.head.rounds || "?") + " rounds" + (a.head.padding ? " \u00b7 padding " + a.head.padding : "")],
+        ["Salt", a.head.salt],
+        ["IV", a.head.iv],
+        ["Size", a.lines + " lines \u00b7 " + a.bytes.toLocaleString() + " bytes"]
+      ];
+    } else if(val(id).trim()){
+      var o = parsed(id);
+      rows = [
+        ["Kind", o ? "valid json" : "plain text"],
+        ["Keys", o && typeof o === "object" && !(o instanceof Array) ? Object.keys(o).length : "\u2014"],
+        ["Size", val(id).trim().split("\n").length + " lines \u00b7 " + new Blob([val(id)]).size.toLocaleString() + " bytes"]
+      ];
+    } else { dl.hidden = true; dl.innerHTML = ""; return; }
+    dl.innerHTML = rows.map(function(r){
+      return '<div class="sm-fact"><dt>' + r[0] + '</dt><dd title="' + esc(r[1]) + '">' + esc(r[1]) + "</dd></div>"; }).join("");
+    dl.hidden = false;
+  }
+
+  /* ── per-box refresh ───────────────────────────────────────────── */
+  function baseName(id){
+    var d = q('[data-download="' + id + '"]');
+    return (d ? d.getAttribute("data-name") : id).replace(/\.json$/, "");
+  }
+  function spellName(id){
+    var o = parsed(id);
+    return (o && typeof o.spell === "string") ? o.spell : baseName(id);
+  }
+  function dlExt(id){ return isSealed(id) ? "seal" : (parsed(id) ? "json" : "txt"); }
+  function dlName(id){ return baseName(id) + "." + dlExt(id); }
+
+  function refresh(id){
+    var t = val(id), sealed = isSealed(id), bad = broken(id);
+    var chip = q('[data-chip-for="' + id + '"]');
+    var meta = q('[data-meta-for="' + id + '"]');
+    var dl   = q('[data-download="' + id + '"]');
+    var rev  = q('[data-revert="' + id + '"]');
+
+    if(chip){
+      chip.textContent = bad ? "Broken" : (sealed ? "Sealed" : (t.trim() ? "Open" : "Empty"));
+      chip.classList.toggle("is-sealed", !!(sealed || bad));
+    }
+    if(dl) dl.textContent = "Download ." + dlExt(id);
+    if(meta){
+      var tail = sealed ? "sealed" : (t.trim() ? (parsed(id) ? "valid json" : "invalid json") : "empty");
+      meta.textContent = t.split("\n").length + " lines \u00b7 " + (new Blob([t]).size / 1024).toFixed(1) + " KB \u00b7 " + tail;
+      meta.style.color = (tail === "invalid json") ? "var(--signal)" : "";
+    }
+    if(rev) rev.disabled = (ORIG[id] === undefined) || (t === ORIG[id]);
+
+    paintGut(id); paintCrypt(id); paintOutline(id); paintTog(id);
+
+    if(bad){ note(id, bad, "bad"); return; }
+    if(sealed){
+      var owner = FROM[block(id).head.spell || ""];
+      if(owner && owner !== id)
+        note(id, "This block says " + block(id).head.spell + ", which belongs in the " + LABEL[owner] + " box.", "bad");
+      else note(id, word.value.trim() ? "" : "Sealed. Say the word above to open it.");
+      return;
+    }
+    if(!t.trim()){ note(id, "Empty. It will be written back as an empty box."); return; }
+    var e = jsonErrLine(t);
+    if(e === 0) note(id, "Open, valid json.");
+    else if(e > 0) note(id, "Open, but the json breaks at line " + e + ".", "bad");
+    else note(id, "Open, but this is not valid json.", "bad");
+  }
+
+  /* ── painting ──────────────────────────────────────────────────── */
+  function paintTog(id){
+    var b = q('[data-tog="' + id + '"]'), lab = q('[data-lab="' + id + '"]');
+    if(!b || busy[id]) return;
+    var sealed = isSealed(id), empty = !val(id).trim();
+    b.classList.toggle("is-sealed", sealed);
+    b.classList.toggle("is-open", !sealed);
+    b.disabled = empty || !!broken(id) || gBusy;
+    if(lab) lab.textContent = sealed ? "Unseal" : "Seal";
+  }
+  function paint(){
+    var sealed = anySealed();
+    btn.classList.toggle("is-sealed", sealed);
+    btn.classList.toggle("is-open", !sealed);
+    label.textContent = sealed ? "Unseal" : "Seal";
+    SPELLS.forEach(paintTog);
+
+    var open = openIds();
+    if(warn){
+      warn.hidden = open.length === 0;
+      if(warnT) warnT.textContent = open.map(function(id){ return LABEL[id]; }).join(" and ") +
+        (open.length > 1 ? " are unsealed." : " is unsealed.");
+    }
+    if(armed && !open.length) disarm();
+  }
+  function disarm(){
+    armed = false;
+    if(saveB){ saveB.className = "sm-act is-primary"; saveB.textContent = "Save to page"; }
+  }
+
+  /* ── progress ──────────────────────────────────────────────────── */
+  function to(pct, ms){
+    fill.style.transition = "width " + ms + "ms cubic-bezier(.25,.7,.3,1)";
+    fill.style.width = pct + "%";
+  }
+  function creep(){
+    if(!gBusy) return;
+    var w = fill.getBoundingClientRect().width, t = btn.getBoundingClientRect().width;
+    label.textContent = Math.min(100, Math.round(w / t * 100)) + "%";
+    requestAnimationFrame(creep);
+  }
+  function startProgress(){
+    gBusy = true; btn.classList.add("is-busy");
+    fill.style.transition = "none"; fill.style.width = "0%";
+    void fill.offsetWidth;
+    to(94, 2600); requestAnimationFrame(creep);
+    SPELLS.forEach(paintTog);
+  }
+  function stopProgress(){
+    gBusy = false; btn.classList.remove("is-busy");
+    fill.style.transition = "none"; fill.style.width = "0%";
+  }
+  function togProgress(id, on){
+    var b = q('[data-tog="' + id + '"]'), f = q('[data-fill="' + id + '"]'), lab = q('[data-lab="' + id + '"]');
+    if(!b) return;
+    if(on){
+      busy[id] = true; b.classList.add("is-busy"); b.disabled = true;
+      f.style.transition = "none"; f.style.width = "0%";
+      void f.offsetWidth;
+      f.style.transition = "width 2600ms cubic-bezier(.25,.7,.3,1)";
+      f.style.width = "94%";
+      (function tick(){
+        if(!busy[id]) return;
+        var w = f.getBoundingClientRect().width, t = b.getBoundingClientRect().width;
+        lab.textContent = Math.min(100, Math.round(w / t * 100)) + "%";
+        requestAnimationFrame(tick);
+      })();
+    } else {
+      f.style.transition = "width 160ms ease"; f.style.width = "100%";
+      setTimeout(function(){
+        busy[id] = false; b.classList.remove("is-busy");
+        f.style.transition = "none"; f.style.width = "0%";
+        paintTog(id);
+      }, 240);
+    }
+  }
+
+  /* ── crypto ops ────────────────────────────────────────────────── */
+  function key(w, salt, iters, uses){
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(w), "PBKDF2", false, ["deriveKey"])
+      .then(function(base){
+        return crypto.subtle.deriveKey(
+          { name:"PBKDF2", salt:salt, iterations:iters, hash:"SHA-256" },
+          base, { name:"AES-GCM", length:256 }, false, uses);
+      });
+  }
+  function seal(id){
+    if(isSealed(id)) return Promise.resolve();
+    var w = word.value.trim();
+    if(!w) return Promise.reject(new Error("no-word"));
+    if(!val(id).trim()) return Promise.reject(new Error("empty"));
+    var text = val(id), name = spellName(id);
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv   = crypto.getRandomValues(new Uint8Array(12));
+    return key(w, salt, IT, ["encrypt"]).then(function(k){
+      return crypto.subtle.encrypt({ name:"AES-GCM", iv:iv }, k, padBytes(new TextEncoder().encode(text)));
+    }).then(function(ct){
+      el(id).value = armor(name, salt, iv, b64(ct));
+      refresh(id);
+    });
+  }
+  function unseal(id){
+    var a = block(id);
+    if(!a) return Promise.resolve();
+    var w = word.value.trim();
+    if(!w) return Promise.reject(new Error("no-word"));
+    return key(w, unb64(a.head.salt), parseInt(a.head.rounds, 10) || IT, ["decrypt"]).then(function(k){
+      return crypto.subtle.decrypt({ name:"AES-GCM", iv:unb64(a.head.iv) }, k, unb64(a.body));
+    }).then(function(pt){
+      var bytes = (a.head.padding === "v1") ? unpadBytes(pt) : new Uint8Array(pt);
+      el(id).value = new TextDecoder().decode(bytes);
+      refresh(id);
+    });
+  }
+  /* ── save the page back ────────────────────────────────────────── */
+  function scrub(root){
+    var f;
+    f = root.querySelector("#spellbtn");   if(f) f.className = "sm-spellbtn is-sealed";
+    f = root.querySelector("#spelllabel"); if(f) f.textContent = "Unseal";
+    f = root.querySelector("#spellfill");  if(f) f.removeAttribute("style");
+    f = root.querySelector("#magic");      if(f) f.setAttribute("value", "");
+    f = root.querySelector("#say");        if(f){ f.className = "sm-say"; f.textContent = "Both spells are sealed. Say the word to open them."; }
+    f = root.querySelector("#openwarn");   if(f) f.setAttribute("hidden", "");
+    f = root.querySelector("#savenote");   if(f){ f.textContent = ""; f.removeAttribute("style"); }
+    f = root.querySelector("#savepage");   if(f){ f.className = "sm-act is-primary"; f.textContent = "Save to page"; }
+    each(root.querySelectorAll(".sm-tog"),      function(b){ b.className = "sm-tog is-sealed"; b.removeAttribute("disabled"); });
+    each(root.querySelectorAll(".sm-tog-lab"),  function(b){ b.textContent = "Unseal"; });
+    each(root.querySelectorAll(".sm-tog-fill"), function(b){ b.removeAttribute("style"); });
+    each(root.querySelectorAll(".sm-gut"),      function(b){ b.innerHTML = ""; });
+    each(root.querySelectorAll(".sm-outline"),  function(b){ b.innerHTML = ""; });
+    each(root.querySelectorAll(".sm-edit"),     function(b){ b.className = "sm-edit"; });
+    each(root.querySelectorAll(".sm-crypt"),    function(b){ b.innerHTML = ""; b.setAttribute("hidden", ""); });
+    each(root.querySelectorAll(".sm-note"),     function(b){ b.textContent = ""; b.className = "sm-note"; });
+    each(root.querySelectorAll(".sm-chip"),     function(b){ b.textContent = "Open"; b.className = "sm-chip"; });
+    each(root.querySelectorAll(".sm-meta"),     function(b){ b.textContent = ""; b.removeAttribute("style"); });
+    each(root.querySelectorAll("[data-revert]"),  function(b){ b.setAttribute("disabled", ""); });
+    each(root.querySelectorAll("[data-outline]"), function(b){ b.className = "sm-act"; b.setAttribute("aria-pressed", "false"); });
+    each(root.querySelectorAll("[data-download]"),function(b){ b.textContent = "Download .json"; });
+    each(root.querySelectorAll("[data-copy]"),    function(b){ b.textContent = "Copy"; });
+  }
+  function boxRe(id){ return new RegExp('(<textarea[^>]*\\bid="' + id + '"[^>]*>)([\\s\\S]*?)(</textarea>)'); }
+  function pageHTML(){
+    var clone = document.documentElement.cloneNode(true);
+    scrub(clone);
+    var html = "<!DOCTYPE html>\n" + clone.outerHTML + "\n", i, id, re, m;
+    for(i = 0; i < SPELLS.length; i++){
+      id = SPELLS[i]; re = boxRe(id);
+      if(!re.test(html)) return { bad:"the rebuilt page has no " + LABEL[id] + " box" };
+      html = html.replace(re, (function(v){
+        return function(all, a, b, c){ return a + v.replace(/&/g, "&amp;").replace(/</g, "&lt;") + c; };
+      })(val(id)));
+    }
+    for(i = 0; i < SPELLS.length; i++){
+      id = SPELLS[i]; m = html.match(boxRe(id));
+      if(!m) return { bad:"the " + LABEL[id] + " box vanished while writing" };
+      if(m[2].replace(/&lt;/g, "<").replace(/&amp;/g, "&").trim() !== val(id).trim())
+        return { bad:"the " + LABEL[id] + " box did not verify \u2014 nothing was downloaded" };
+    }
+    return { html:html };
+  }
+  function savePage(){
+    var open = openIds();
+    if(open.length && !armed){
+      armed = true;
+      saveB.className = "sm-act is-danger";
+      saveB.textContent = "Save anyway \u2014 " + open.length + " open";
+      saveSay("That would write " + open.map(function(id){ return LABEL[id]; }).join(" and ") +
+              " to disk in the clear. Click again to accept, or seal first.", "bad");
+      return;
+    }
+    var r = pageHTML();
+    if(r.bad){ disarm(); saveSay(r.bad, "bad"); return; }
+    var name = (location.pathname.split("/").pop() || "charon.html").replace(/[?#].*$/, "") || "charon.html";
+    download(new Blob([r.html], { type:"text/html" }), name);
+    disarm();
+    saveSay("Rebuilt " + name + " \u00b7 " + (r.html.length / 1024).toFixed(1) + " KB \u00b7 both boxes verified.", "good");
+  }
+  function download(blob, name){
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  /* ── the big button: everything at once ────────────────────────── */
+  function go(){
+    if(gBusy) return;
+    if(!crypto_ok()){ tell("This browser will not run crypto from file:// \u2014 serve over http://localhost.", true); return; }
+    if(!word.value.trim()){ tell("Say the word first.", true); word.focus(); return; }
+    var opening = anySealed();
+    var fn = opening ? unseal : seal;
+    startProgress();
+    tell("Turning the key\u2026");
+    SPELLS.reduce(function(chain, id){
+      return chain.then(function(){ return fn(id); });
+    }, Promise.resolve()).then(function(){
+      to(100, 200);
+      setTimeout(function(){
+        stopProgress(); paint();
+        tell(opening ? "Open. Both spells are readable."
+                     : "Sealed with \u201c" + word.value.trim() + "\u201d. Nothing opens them without it.");
+      }, 420);
+    }).catch(function(e){
+      stopProgress(); SPELLS.forEach(refresh); paint();
+      if(e && e.message === "no-word") tell("Say the word first.", true);
+      else if(e && e.message === "empty") tell("Nothing in the box to seal.", true);
+      else if(opening) tell("That word does not open it.", true);
+      else tell("Could not seal that.", true);
+    });
+  }
+
+  /* ── one spell at a time ───────────────────────────────────────── */
+  function one(id){
+    if(busy[id] || gBusy) return;
+    if(!crypto_ok()){ note(id, "This browser will not run crypto from file:// \u2014 serve over http://localhost.", "bad"); return; }
+    if(!word.value.trim()){ note(id, "Say the word above first.", "bad"); word.focus(); return; }
+    var opening = isSealed(id);
+    togProgress(id, true);
+    note(id, "Turning the key\u2026");
+    (opening ? unseal(id) : seal(id)).then(function(){
+      togProgress(id, false); paint();
+      note(id, opening ? "Open. Edit it here, then seal it again." :
+                         "Sealed with \u201c" + word.value.trim() + "\u201d.", "good");
+    }).catch(function(e){
+      togProgress(id, false); refresh(id); paint();
+      if(e && e.message === "empty") note(id, "Nothing in the box to seal.", "bad");
+      else note(id, opening ? "That word does not open it." : "Could not seal that.", "bad");
+    });
+  }
+
+  /* ── wiring ────────────────────────────────────────────────────── */
+  SPELLS.forEach(function(id){
+    ORIG[id] = val(id);
+    var ta = el(id);
+    ta.addEventListener("scroll", function(){ syncGut(id); });
+    ta.addEventListener("input", function(){
+      clearTimeout(timers[id]);
+      timers[id] = setTimeout(function(){ refresh(id); paint(); }, 160);
+    });
+    ta.addEventListener("keydown", function(e){
+      if(e.key === "Escape"){ escHatch[id] = true; return; }
+      if(e.key === "Tab" && !escHatch[id]){
+        e.preventDefault();
+        var s = ta.selectionStart, n = ta.selectionEnd;
+        ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(n);
+        ta.selectionStart = ta.selectionEnd = s + 2;
+        refresh(id); paint();
+        return;
+      }
+      escHatch[id] = false;
+    });
+    ta.addEventListener("dragover", function(e){ e.preventDefault(); ta.classList.add("sm-drop"); });
+    ta.addEventListener("dragleave", function(){ ta.classList.remove("sm-drop"); });
+    ta.addEventListener("drop", function(e){
+      e.preventDefault(); ta.classList.remove("sm-drop");
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(!f) return;
+      var r = new FileReader();
+      r.onload = function(){ ta.value = r.result; refresh(id); paint(); note(id, "Loaded " + f.name + "."); };
+      r.readAsText(f);
+    });
+    refresh(id);
+  });
+
+  document.addEventListener("click", function(e){
+    var t = e.target;
+    if(!t || !t.closest) return;
+    var hit;
+
+    if((hit = t.closest("[data-tog]"))){ one(hit.getAttribute("data-tog")); return; }
+
+    if((hit = t.closest("[data-outline]"))){
+      var oid = hit.getAttribute("data-outline");
+      var wrap = q('[data-edit="' + oid + '"]');
+      var on = wrap.classList.toggle("is-outlined");
+      hit.classList.toggle("is-on", on);
+      hit.setAttribute("aria-pressed", on ? "true" : "false");
+      paintOutline(oid);
+      return;
+    }
+    if((hit = t.closest("[data-jump]"))){
+      jumpTo(hit.getAttribute("data-jump"), parseInt(hit.getAttribute("data-line"), 10));
+      return;
+    }
+    if((hit = t.closest("[data-revert]"))){
+      var rid = hit.getAttribute("data-revert");
+      el(rid).value = ORIG[rid];
+      refresh(rid); paint();
+      note(rid, "Put back as it was when the page loaded.", "good");
+      return;
+    }
+    if((hit = t.closest("[data-copy]"))){
+      var cid = hit.getAttribute("data-copy");
+      navigator.clipboard.writeText(val(cid)).then(function(){
+        hit.textContent = "Copied";
+        setTimeout(function(){ hit.textContent = "Copy"; }, 1600);
+      }).catch(function(){
+        var ta = el(cid); ta.focus(); ta.select();
+        hit.textContent = "Press \u2318C";
+        setTimeout(function(){ hit.textContent = "Copy"; }, 2200);
+      });
+      return;
+    }
+    if((hit = t.closest("[data-download]"))){
+      var did = hit.getAttribute("data-download");
+      download(new Blob([val(did)], { type: dlExt(did) === "json" ? "application/json" : "text/plain" }), dlName(did));
+      hit.textContent = "Saved";
+      setTimeout(function(){ hit.textContent = "Download ." + dlExt(did); }, 1600);
+      return;
+    }
+  });
+
+  btn.addEventListener("click", go);
+  word.addEventListener("keydown", function(e){ if(e.key === "Enter") go(); });
+  word.addEventListener("input", function(){
+    clearTimeout(timers.word);
+    timers.word = setTimeout(function(){ SPELLS.forEach(refresh); paint(); }, 300);
+  });
+
+
+  if(saveB) saveB.addEventListener("click", savePage);
+  document.addEventListener("keydown", function(e){
+    if((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "s"){ e.preventDefault(); savePage(); }
+  });
+  window.addEventListener("beforeunload", function(e){
+    if(openIds().length){ e.preventDefault(); e.returnValue = ""; return ""; }
+  });
+
+  /* ── github sync ─────────────────────────────────────────────────
+     Extracted from the grimoire's git layer and reduced to what this page
+     needs. Request shaping is pure; gitSend is the only place the network is
+     touched. The token is the only secret and rides in the SAME sealed
+     envelope as the spells, or nowhere at all. */
+  var GIT = { owner:'defconllm', name:'codex', branch:'main', path:'charon.html',
+              token:null, sealed:null, KEY:'charon-git', armed:false };
+
+  function gitEl(id){ return document.getElementById(id); }
+  function gitTell(m, cls){
+    var n = gitEl('gitsay');
+    if(n){ n.textContent = m || ''; n.className = 'sm-gitsay' + (cls ? ' is-' + cls : ''); }
+  }
+
+  /* owner/repo from "owner/repo" or a github URL. null on junk rather than a
+     guess: a wrong target is a commit to someone else's history. Dot-only
+     segments are rejected because "." is inside the charset below, and the URL
+     built from them is silently rewritten by normalisation. */
+  function gitParseRepo(v){
+    v = String(v || '').trim();
+    if(!v) return null;
+    var m = v.match(/github\.com[/:]([^/]+)\/([^/#?]+?)(?:\.git)?(?:[/#?].*)?$/i)
+         || v.match(/^([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?$/);
+    if(!m) return null;
+    var owner = m[1], repo = m[2];
+    if(!owner || !repo) return null;
+    if(/[^A-Za-z0-9._-]/.test(owner) || /[^A-Za-z0-9._-]/.test(repo)) return null;
+    if(/^\.+$/.test(owner) || /^\.+$/.test(repo)) return null;
+    return { owner:owner, repo:repo };
+  }
+
+  /* validated before it reaches the API, so a bad path gets a sentence instead
+     of a confusing 404 */
+  function gitPathOk(p){
+    p = String(p == null ? '' : p).trim();
+    if(!p) return 'Give a file path in the repository.';
+    if(p.length > 400) return 'That path is too long.';
+    var segs = p.split('/').filter(Boolean);
+    if(!segs.length) return 'Give a file path in the repository.';
+    for(var i = 0; i < segs.length; i++) if(segs[i] === '.' || segs[i] === '..')
+      return 'A path cannot contain "." or ".." segments.';
+    if(/^[\\/]/.test(p)) return 'Use a path relative to the repository root, with no leading slash.';
+    if(/[\u0000-\u001f]/.test(p)) return 'That path contains control characters.';
+    return null;
+  }
+  function gitPathEnc(p){ return String(p).split('/').filter(Boolean).map(encodeURIComponent).join('/'); }
+
+  function gitHeaders(tok){
+    var h = { 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+    if(tok) h['Authorization'] = 'token ' + tok;
+    return h;
+  }
+  function gitPullReq(o, r, p, b, tok){
+    return { url:'https://api.github.com/repos/' + o + '/' + r + '/contents/' + gitPathEnc(p) +
+                 '?ref=' + encodeURIComponent(b),
+             method:'GET', headers:gitHeaders(tok) };
+  }
+  function gitPushReq(o, r, p, b, tok, content, message, sha){
+    var payload = { message:String(message || ('Update ' + p)), branch:b,
+                    content:b64(new TextEncoder().encode(content)) };
+    if(sha) payload.sha = sha;
+    var h = gitHeaders(tok); h['Content-Type'] = 'application/json';
+    return { url:'https://api.github.com/repos/' + o + '/' + r + '/contents/' + gitPathEnc(p),
+             method:'PUT', headers:h, body:JSON.stringify(payload) };
+  }
+  function gitErrMsg(status, p, kind){
+    if(status === 404) return kind === 'push' ? null : ('Not found: ' + p + '.');
+    if(status === 401 || status === 403) return kind === 'push'
+      ? 'Push denied. The token needs Contents: write on this repository.'
+      : 'Access denied. Check the token and its scope.';
+    if(status === 409 || status === 422) return 'The branch moved under you. Pull first, then push again.';
+    return (kind === 'push' ? 'Push' : 'Pull') + ' failed (HTTP ' + status + ').';
+  }
+  function gitSend(req){ return fetch(req.url, { method:req.method, headers:req.headers, body:req.body }); }
+
+  /* read the panel into GIT; returns an error string or null */
+  function gitRead(){
+    var parsed = gitParseRepo(gitEl('gitrepo').value);
+    if(!parsed) return 'That does not look like "owner/repo" or a GitHub URL.';
+    GIT.owner = parsed.owner; GIT.name = parsed.repo;
+    GIT.branch = gitEl('gitbranch').value.trim() || 'main';
+    GIT.path = gitEl('gitpath').value.trim();
+    var bad = gitPathOk(GIT.path);
+    if(bad) return bad;
+    var t = gitEl('gittoken').value.trim();
+    if(t) GIT.token = t;
+    return null;
+  }
+
+  /* persistence. Coordinates are not secret. The token only reaches disk inside
+     the spell envelope, and only when a magic word is there to seal it with. */
+  function gitRemember(){
+    var bad = gitRead();
+    if(bad){ gitTell(bad, 'bad'); return; }
+    var rec = { repo:GIT.owner + '/' + GIT.name, branch:GIT.branch, path:GIT.path, token:null };
+    var w = word.value.trim();
+    if(GIT.token && !w){
+      gitTell('Saved the repository. The token was not written: say the magic word first and it is sealed with the spells.', 'bad');
+      try { localStorage.setItem(GIT.KEY, JSON.stringify(rec)); } catch(e){}
+      return;
+    }
+    if(!GIT.token){
+      try { localStorage.setItem(GIT.KEY, JSON.stringify(rec)); } catch(e){}
+      gitTell('Saved the repository, branch and path.', 'good');
+      return;
+    }
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv   = crypto.getRandomValues(new Uint8Array(12));
+    gitTell('Sealing the token\u2026');
+    key(w, salt, IT, ['encrypt']).then(function(k){
+      return crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, k,
+                                   padBytes(new TextEncoder().encode(GIT.token)));
+    }).then(function(ct){
+      rec.token = armor('charon.token', salt, iv, b64(ct));
+      try { localStorage.setItem(GIT.KEY, JSON.stringify(rec)); } catch(e){}
+      GIT.sealed = rec.token;
+      gitTell('Saved. The token is sealed with \u201c' + w + '\u201d, the same envelope as the spells.', 'good');
+    }).catch(function(){ gitTell('Could not seal the token.', 'bad'); });
+  }
+
+  function gitRestore(){
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(GIT.KEY) || 'null'); } catch(e){}
+    if(!raw || typeof raw !== 'object') return;
+    if(typeof raw.repo === 'string'){
+      var p = gitParseRepo(raw.repo);
+      if(p){ GIT.owner = p.owner; GIT.name = p.repo; gitEl('gitrepo').value = raw.repo; }
+    }
+    if(typeof raw.branch === 'string' && raw.branch){ GIT.branch = raw.branch; gitEl('gitbranch').value = raw.branch; }
+    if(typeof raw.path === 'string' && raw.path){ GIT.path = raw.path; gitEl('gitpath').value = raw.path; }
+    GIT.sealed = (typeof raw.token === 'string') ? raw.token : null;
+  }
+
+  /* unseal the stored token on demand, using whatever word is in the vault box */
+  function gitToken(){
+    if(GIT.token) return Promise.resolve(GIT.token);
+    var t = gitEl('gittoken').value.trim();
+    if(t){ GIT.token = t; return Promise.resolve(t); }
+    if(!GIT.sealed) return Promise.resolve(null);
+    var w = word.value.trim();
+    if(!w) return Promise.resolve(null);
+    var a = unarmor(GIT.sealed);
+    if(!a || a.bad) return Promise.resolve(null);
+    return key(w, unb64(a.head.salt), parseInt(a.head.rounds, 10) || IT, ['decrypt'])
+      .then(function(k){
+        return crypto.subtle.decrypt({ name:'AES-GCM', iv:unb64(a.head.iv) }, k, unb64(a.body));
+      })
+      .then(function(pt){
+        GIT.token = new TextDecoder().decode(unpadBytes(pt));
+        return GIT.token;
+      })
+      .catch(function(){ return null; });
+  }
+
+  function gitDisarm(){
+    GIT.armed = false;
+    var b = gitEl('gitpush');
+    if(b){ b.className = 'sm-act is-primary'; b.textContent = 'Push page'; }
+  }
+
+  function gitPull(){
+    var bad = gitRead();
+    if(bad){ gitTell(bad, 'bad'); return; }
+    gitTell('Pulling ' + GIT.path + '\u2026');
+    gitToken().then(function(tok){
+      return gitSend(gitPullReq(GIT.owner, GIT.name, GIT.path, GIT.branch, tok));
+    }).then(function(r){
+      if(!r.ok) throw new Error(gitErrMsg(r.status, GIT.path, 'pull'));
+      return r.json();
+    }).then(function(j){
+      if(j.type !== 'file' || typeof j.content !== 'string') throw new Error(GIT.path + ' is not a file.');
+      var text = new TextDecoder().decode(unb64(String(j.content).replace(/\s/g, '')));
+      download(new Blob([text], { type:'text/html' }), GIT.path.split('/').pop() || 'charon.html');
+      gitTell('Pulled ' + (text.length / 1024).toFixed(1) + ' KB from ' + GIT.owner + '/' + GIT.name +
+              '. Downloaded rather than swapped in, so compare before you replace this one.', 'good');
+    }).catch(function(e){ gitTell(e.message || 'Pull failed.', 'bad'); });
+  }
+
+  function gitPush(){
+    var bad = gitRead();
+    if(bad){ gitTell(bad, 'bad'); return; }
+
+    var open = openIds();
+    if(open.length && !GIT.armed){
+      GIT.armed = true;
+      var b = gitEl('gitpush');
+      b.className = 'sm-act is-danger';
+      b.textContent = 'Push anyway \u2014 ' + open.length + ' open';
+      gitTell('That would commit ' + open.map(function(id){ return LABEL[id]; }).join(' and ') +
+              ' to the repository in the clear, permanently, in the history. Seal first, or click again.', 'bad');
+      return;
+    }
+
+    var built = pageHTML();
+    if(built.bad){ gitDisarm(); gitTell(built.bad, 'bad'); return; }
+
+    gitTell('Reading the current file\u2026');
+    var tok = null;
+    gitToken().then(function(t){
+      tok = t;
+      if(!tok) throw new Error('Connect a token first. Pushing needs Contents: write.');
+      return gitSend(gitPullReq(GIT.owner, GIT.name, GIT.path, GIT.branch, tok));
+    }).then(function(sr){
+      if(sr.ok) return sr.json().then(function(j){ return j.sha || null; }, function(){ return null; });
+      if(sr.status !== 404) throw new Error('Could not check ' + GIT.path + ' (HTTP ' + sr.status + ').');
+      return null;                                  // 404 means new file, not failure
+    }).then(function(sha){
+      gitTell(sha ? 'Updating ' + GIT.path + '\u2026' : 'Creating ' + GIT.path + '\u2026');
+      return gitSend(gitPushReq(GIT.owner, GIT.name, GIT.path, GIT.branch, tok,
+                                built.html, 'Update ' + GIT.path + ' from the page', sha));
+    }).then(function(r){
+      if(!r.ok){
+        return r.json().then(function(j){
+          throw new Error(gitErrMsg(r.status, GIT.path, 'push') + (j && j.message ? ': ' + j.message : ''));
+        }, function(){ throw new Error(gitErrMsg(r.status, GIT.path, 'push')); });
+      }
+      return r.json();
+    }).then(function(j){
+      gitDisarm();
+      var sha = (j.commit && j.commit.sha) ? j.commit.sha.slice(0, 7) : '?';
+      gitTell('Pushed ' + (built.html.length / 1024).toFixed(1) + ' KB to ' +
+              GIT.owner + '/' + GIT.name + '/' + GIT.path + ' on ' + GIT.branch + '. Commit ' + sha + '.', 'good');
+    }).catch(function(e){ gitDisarm(); gitTell(e.message || 'Push failed.', 'bad'); });
+  }
+
+  /* ── panel ── */
+  var gitVeil = gitEl('gitveil'), gitSig = gitEl('gitsigil');
+  function gitOpen(){
+    gitVeil.hidden = false;
+    gitSig.setAttribute('aria-expanded', 'true');
+    gitTell(GIT.sealed && !GIT.token
+      ? 'A sealed token is stored. Say the magic word in Spells and it opens when you pull or push.'
+      : '');
+    gitEl('gitrepo').focus();
+  }
+  function gitClose(){
+    gitVeil.hidden = true;
+    gitSig.setAttribute('aria-expanded', 'false');
+    gitDisarm();
+    gitSig.focus();
+  }
+  if(gitSig) gitSig.addEventListener('click', function(){ gitVeil.hidden ? gitOpen() : gitClose(); });
+  if(gitEl('gitclose')) gitEl('gitclose').addEventListener('click', gitClose);
+  if(gitEl('gitpull'))  gitEl('gitpull').addEventListener('click', gitPull);
+  if(gitEl('gitpush'))  gitEl('gitpush').addEventListener('click', gitPush);
+  if(gitEl('gitsave'))  gitEl('gitsave').addEventListener('click', gitRemember);
+  if(gitVeil) gitVeil.addEventListener('click', function(e){ if(e.target === gitVeil) gitClose(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && gitVeil && !gitVeil.hidden){ e.preventDefault(); gitClose(); }
+  });
+  ['gitrepo','gitbranch','gitpath','gittoken'].forEach(function(id){
+    var f = gitEl(id);
+    if(f) f.addEventListener('input', gitDisarm);
+  });
+  /* ── fingerprint ─────────────────────────────────────────────────
+     The page rewrites itself, so a single hash over the whole file says
+     nothing useful: every save moves it. Split it instead. The shell is the
+     markup and code with both boxes blanked, and each box is hashed on its
+     own, so a mismatch is attributable rather than merely alarming. */
+  var FP = { KEY:'charon-fp', last:null };
+
+  function fpHex(buf){
+    var b = new Uint8Array(buf), o = '', i;
+    for(i = 0; i < b.length; i++) o += ('0' + b[i].toString(16)).slice(-2);
+    return o;
+  }
+  function fpSha(text){
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(fpHex);
+  }
+
+  /* pure: page html in, the three parts out */
+  function fpSplit(html){
+    var parts = {}, shell = html, i, id, m;
+    for(i = 0; i < SPELLS.length; i++){
+      id = SPELLS[i];
+      m = html.match(boxRe(id));
+      parts[id] = m ? m[2] : '';
+      shell = shell.replace(boxRe(id), (function(){
+        return function(all, a, b, c){ return a + '\u0000BOX\u0000' + c; };
+      })());
+    }
+    parts.shell = shell;
+    return parts;
+  }
+
+  function fpTake(){
+    var built = pageHTML();
+    if(built.bad) return Promise.reject(new Error(built.bad));
+    var parts = fpSplit(built.html);
+    var names = ['shell'].concat(SPELLS);
+    return Promise.all(names.map(function(n){ return fpSha(parts[n]); }))
+      .then(function(hashes){
+        var out = {};
+        names.forEach(function(n, i){ out[n] = hashes[i]; });
+        FP.last = out;
+        return out;
+      });
+  }
+
+  function fpShow(taken, against){
+    ['shell'].concat(SPELLS).forEach(function(n){
+      var cell = q('[data-fp="' + n + '"]');
+      if(!cell) return;
+      if(!taken || !taken[n]){ cell.textContent = 'not taken'; cell.className = ''; return; }
+      cell.textContent = taken[n].slice(0, 24);
+      cell.title = taken[n];
+      if(!against || !against[n]){ cell.className = ''; return; }
+      var same = against[n] === taken[n];
+      cell.className = same ? 'is-same' : 'is-moved';
+      if(!same) cell.textContent = taken[n].slice(0, 24) + '  (was ' + against[n].slice(0, 8) + ')';
+    });
+  }
+
+  function fpSealRecord(){
+    var w = word.value.trim();
+    if(!w){ gitTell('Say the magic word in Spells first. The record is sealed with it.', 'bad'); word.focus(); return; }
+    gitTell('Taking the fingerprint\u2026');
+    fpTake().then(function(rec){
+      var salt = crypto.getRandomValues(new Uint8Array(16));
+      var iv   = crypto.getRandomValues(new Uint8Array(12));
+      return key(w, salt, IT, ['encrypt']).then(function(k){
+        return crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, k,
+                                     padBytes(new TextEncoder().encode(JSON.stringify(rec))));
+      }).then(function(ct){
+        try { localStorage.setItem(FP.KEY, armor('charon.fingerprint', salt, iv, b64(ct))); } catch(e){}
+        fpShow(rec, rec);
+        gitTell('Fingerprint sealed with \u201c' + w + '\u201d and kept in this browser. Verify against it later.', 'good');
+      });
+    }).catch(function(e){ gitTell(e.message || 'Could not seal the fingerprint.', 'bad'); });
+  }
+
+  function fpVerify(){
+    var stored = null;
+    try { stored = localStorage.getItem(FP.KEY); } catch(e){}
+    if(!stored){ gitTell('No sealed fingerprint yet. Take one and seal it first.', 'bad'); return; }
+    var w = word.value.trim();
+    if(!w){ gitTell('Say the magic word in Spells first.', 'bad'); word.focus(); return; }
+    var a = unarmor(stored);
+    if(!a || a.bad){ gitTell('The stored fingerprint is unreadable.', 'bad'); return; }
+    gitTell('Comparing\u2026');
+    Promise.all([
+      fpTake(),
+      key(w, unb64(a.head.salt), parseInt(a.head.rounds, 10) || IT, ['decrypt']).then(function(k){
+        return crypto.subtle.decrypt({ name:'AES-GCM', iv:unb64(a.head.iv) }, k, unb64(a.body));
+      }).then(function(pt){ return JSON.parse(new TextDecoder().decode(unpadBytes(pt))); })
+    ]).then(function(both){
+      var now = both[0], was = both[1];
+      var moved = ['shell'].concat(SPELLS).filter(function(n){ return was[n] !== now[n]; });
+      fpShow(now, was);
+      if(!moved.length){ gitTell('Unchanged. All three parts match the sealed record.', 'good'); return; }
+      var human = moved.map(function(n){ return n === 'shell' ? 'the shell' : LABEL[n]; });
+      gitTell('Moved since the record was sealed: ' + human.join(', ') + '.', 'bad');
+    }).catch(function(){ gitTell('That word does not open the sealed fingerprint.', 'bad'); });
+  }
+
+  if(gitEl('fptake')) gitEl('fptake').addEventListener('click', function(){
+    gitTell('Taking the fingerprint\u2026');
+    fpTake().then(function(rec){ fpShow(rec, null); gitTell('Taken. Nothing compared yet.', 'good'); })
+            .catch(function(e){ gitTell(e.message || 'Could not take it.', 'bad'); });
+  });
+  if(gitEl('fpseal')) gitEl('fpseal').addEventListener('click', fpSealRecord);
+  if(gitEl('fpverify')) gitEl('fpverify').addEventListener('click', fpVerify);
+
+  gitRestore();
+
+  paint();
+})();
+</script>
+</body>
+</html>
