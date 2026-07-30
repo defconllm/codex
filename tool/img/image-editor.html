@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Safelight — image editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── tokens ─────────────────────────────────────────────── */
+:root{
+  --ink:#0E0F11;
+  --graphite:#191B1E;
+  --raise:#23262A;
+  --raise-hi:#2C3035;
+  --stage:#0D0E10;
+  --line:#31363B;
+  --line-soft:#212528;
+  --text:#EDE9E4;          /* warm — print tone */
+  --dim:#868D95;           /* cool — developer tray */
+  --safelight:#F2A33C;
+  --safelight-lo:#7A5320;
+  --r:5px;
+  --panel:334px;
+  --ui:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--ink); color:var(--text);
+  font:400 13px/1.45 var(--ui);
+  -webkit-font-smoothing:antialiased;
+  display:grid; grid-template-rows:auto 1fr; grid-template-columns:minmax(0,1fr);
+  height:100vh; height:100dvh; overflow:hidden;
+  overscroll-behavior:none;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+::selection{background:var(--safelight);color:#151517}
+:focus-visible{outline:2px solid var(--safelight);outline-offset:2px;border-radius:3px}
+
+/* ─── top bar ────────────────────────────────────────────── */
+.bar{
+  display:flex;align-items:center;gap:14px;
+  height:50px;padding:0 12px 0 14px;
+  background:var(--graphite);border-bottom:1px solid var(--line-soft);
+}
+.mark{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.mark svg{display:block}
+.mark b{
+  font:500 11px/1 var(--mono);letter-spacing:.22em;
+  text-transform:uppercase;color:var(--text);
+}
+.meta{
+  font:400 11px/1 var(--mono);color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;min-width:0;
+}
+.meta em{font-style:normal;color:#B9BEC4}
+.acts{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  height:30px;padding:0 11px;border-radius:var(--r);
+  background:var(--raise);border:1px solid transparent;
+  color:#C8CDD3;white-space:nowrap;font-size:12.5px;
+  transition:background .12s,color .12s;
+}
+.btn:hover:not(:disabled){background:var(--raise-hi);color:var(--text)}
+.btn:disabled{opacity:.32;cursor:default}
+.btn--icon{width:30px;padding:0;justify-content:center}
+.btn--go{
+  background:var(--safelight);color:#1A1206;font-weight:600;
+  padding:0 15px;
+}
+.btn--go:hover:not(:disabled){background:#FFB852;color:#1A1206}
+.btn--go:disabled{background:var(--raise);color:#C8CDD3}
+.btn.is-held{background:var(--safelight-lo);color:var(--text)}
+.btn kbd{
+  font:400 10px/1 var(--mono);color:inherit;opacity:.55;
+  border:0;padding:0;
+}
+.bar .sep{width:1px;height:20px;background:var(--line-soft);flex-shrink:0}
+
+/* ─── layout ─────────────────────────────────────────────── */
+.work{display:grid;grid-template-columns:1fr var(--panel);min-height:0}
+
+/* ─── stage ──────────────────────────────────────────────── */
+.stage{
+  background:var(--stage);min-width:0;
+  overflow:auto;display:flex;
+}
+.stage.is-grab{cursor:grab}
+.stage.is-grabbing{cursor:grabbing}
+.area{position:relative;min-width:0;display:grid;overflow:hidden}
+.holder{position:relative;margin:auto;padding:24px}
+#view{
+  display:block;background:#000;position:relative;z-index:1;
+  box-shadow:0 0 0 1px #000, 0 18px 50px -18px rgba(0,0,0,.9);
+  image-rendering:auto;
+}
+#view.is-hidden{display:none}
+
+/* empty state */
+.empty{
+  padding:40px;text-align:center;max-width:400px;
+  border:1px dashed var(--line);border-radius:10px;
+  transition:border-color .15s,background .15s;
+}
+.stage.is-over .empty{border-color:var(--safelight);background:rgba(242,163,60,.05)}
+.empty h1{
+  font:500 15px/1.3 var(--mono);letter-spacing:.02em;
+  margin:16px 0 8px;color:var(--text);
+}
+.empty p{margin:0 0 20px;color:var(--dim);font-size:12.5px;line-height:1.6}
+.empty .glow{
+  width:40px;height:40px;margin:0 auto;border-radius:50%;
+  background:radial-gradient(circle,rgba(242,163,60,.85) 0%,rgba(242,163,60,.18) 45%,transparent 70%);
+}
+
+/* zoom cluster */
+.zoom{
+  position:absolute;left:14px;bottom:14px;z-index:4;
+  display:flex;align-items:center;gap:1px;
+  background:rgba(20,22,25,.92);backdrop-filter:blur(8px);
+  border:1px solid var(--line-soft);border-radius:var(--r);
+  padding:3px;
+}
+.zoom button{
+  height:24px;min-width:26px;padding:0 7px;border-radius:3px;
+  color:var(--dim);font:400 11px/1 var(--mono);
+}
+.zoom button:hover{background:var(--raise);color:var(--text)}
+.zoom button.is-on{color:var(--safelight)}
+.zoom .pct{
+  min-width:52px;text-align:center;color:#B9BEC4;
+  font:400 11px/1 var(--mono);cursor:default;
+}
+.zoom .pct:hover{background:none}
+
+/* crop overlay */
+.crop__pad{position:absolute;z-index:0;background:#EDE9E4}
+.crop__pad.is-clear{
+  background:repeating-conic-gradient(#2A2E33 0% 25%, #1E2226 0% 50%) 50%/14px 14px;
+}
+.crop{position:absolute;left:0;top:0;z-index:3;display:none;touch-action:none}
+.crop.is-on{display:block}
+.crop__mask{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.crop__hole{position:absolute;box-shadow:0 0 0 9999px rgba(8,9,10,.62)}
+.crop__box{position:absolute;outline:1px solid rgba(255,255,255,.9);cursor:move}
+.crop__grid{position:absolute;inset:0;pointer-events:none;opacity:.5}
+.crop__grid i{position:absolute;background:rgba(255,255,255,.55)}
+.crop__grid i:nth-child(1){left:33.333%;top:0;bottom:0;width:1px}
+.crop__grid i:nth-child(2){left:66.666%;top:0;bottom:0;width:1px}
+.crop__grid i:nth-child(3){top:33.333%;left:0;right:0;height:1px}
+.crop__grid i:nth-child(4){top:66.666%;left:0;right:0;height:1px}
+.crop__h{position:absolute;width:16px;height:16px;z-index:2}
+.crop__h::after{
+  content:'';position:absolute;inset:5px;border-radius:1px;
+  background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.5);
+}
+.crop__h[data-h=nw]{left:-8px;top:-8px;cursor:nwse-resize}
+.crop__h[data-h=ne]{right:-8px;top:-8px;cursor:nesw-resize}
+.crop__h[data-h=sw]{left:-8px;bottom:-8px;cursor:nesw-resize}
+.crop__h[data-h=se]{right:-8px;bottom:-8px;cursor:nwse-resize}
+.crop__h[data-h=n]{left:50%;top:-8px;margin-left:-8px;cursor:ns-resize}
+.crop__h[data-h=s]{left:50%;bottom:-8px;margin-left:-8px;cursor:ns-resize}
+.crop__h[data-h=w]{left:-8px;top:50%;margin-top:-8px;cursor:ew-resize}
+.crop__h[data-h=e]{right:-8px;top:50%;margin-top:-8px;cursor:ew-resize}
+.crop__size{
+  position:absolute;left:50%;bottom:-26px;transform:translateX(-50%);
+  font:400 10px/1 var(--mono);color:#fff;white-space:nowrap;
+  background:rgba(8,9,10,.8);padding:4px 7px;border-radius:3px;
+}
+
+/* ─── panel ──────────────────────────────────────────────── */
+.panel{
+  background:var(--graphite);border-left:1px solid var(--line-soft);
+  overflow-y:auto;overscroll-behavior:contain;min-width:0;
+  scrollbar-width:thin;scrollbar-color:var(--raise-hi) transparent;
+}
+.panel.is-idle{opacity:.4;pointer-events:none}
+.panel::-webkit-scrollbar{width:9px}
+.panel::-webkit-scrollbar-thumb{background:var(--raise-hi);border-radius:9px;border:3px solid var(--graphite)}
+
+/* histogram — the signature instrument */
+.scope{padding:12px 14px 13px;border-bottom:1px solid var(--line-soft)}
+.scope__head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font:400 9.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:8px;
+}
+.scope__head span{letter-spacing:.04em;text-transform:none;color:#6E757C}
+.scope__frame{
+  position:relative;background:#0A0B0C;border:1px solid var(--line-soft);
+  border-radius:3px;overflow:hidden;
+}
+#scope{display:block;width:100%;height:74px}
+.scope__frame::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent 24.8%,rgba(255,255,255,.07) 25%,transparent 25.2%,
+    transparent 49.8%,rgba(255,255,255,.07) 50%,transparent 50.2%,
+    transparent 74.8%,rgba(255,255,255,.07) 75%,transparent 75.2%);
+}
+.scope__clip{
+  display:flex;justify-content:space-between;
+  font:400 9.5px/1 var(--mono);color:#5E656C;margin-top:6px;
+}
+
+/* sections */
+.sec{border-bottom:1px solid var(--line-soft)}
+.sec>summary{
+  display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;
+  padding:11px 14px;font:400 9.5px/1 var(--mono);
+  letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+  user-select:none;
+}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary:hover{color:#B9BEC4}
+.sec>summary::after{
+  content:'';margin-left:auto;width:5px;height:5px;
+  border-right:1px solid currentColor;border-bottom:1px solid currentColor;
+  transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s;
+}
+.sec[open]>summary::after{transform:rotate(-135deg) translate(-1px,-1px)}
+.sec__dot{
+  width:4px;height:4px;border-radius:50%;background:var(--safelight);
+  opacity:0;transition:opacity .15s;
+}
+.sec.is-touched .sec__dot{opacity:1}
+.sec__body{padding:2px 14px 15px}
+
+/* control rows */
+.ctl{display:block;padding:5px 0 9px}
+.ctl__top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl__label{font-size:12.5px;color:#B9BEC4;transition:color .12s}
+.ctl__val{
+  font:400 11px/1 var(--mono);color:var(--dim);
+  font-variant-numeric:tabular-nums;transition:color .12s;
+}
+.ctl.is-on .ctl__label,.ctl.is-on .ctl__val{color:var(--safelight)}
+.ctl__track{position:relative;display:block;height:22px;margin-top:3px}
+.ctl__tick{
+  position:absolute;top:9px;width:1px;height:5px;
+  background:var(--line);pointer-events:none;
+}
+.ctl input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  position:absolute;inset:0;width:100%;height:22px;
+  background:transparent;margin:0;cursor:ew-resize;
+}
+.ctl input[type=range]::-webkit-slider-runnable-track{
+  height:2px;background:var(--raise-hi);border-radius:2px;margin-top:10px;
+}
+.ctl input[type=range]::-moz-range-track{height:2px;background:var(--raise-hi);border-radius:2px}
+.ctl input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+  background:#D7DBDF;margin-top:-5px;border:0;
+  box-shadow:0 1px 3px rgba(0,0,0,.6);transition:background .12s;
+}
+.ctl input[type=range]::-moz-range-thumb{
+  width:12px;height:12px;border-radius:50%;background:#D7DBDF;border:0;
+  box-shadow:0 1px 3px rgba(0,0,0,.6);
+}
+.ctl.is-on input[type=range]::-webkit-slider-thumb{background:var(--safelight)}
+.ctl.is-on input[type=range]::-moz-range-thumb{background:var(--safelight)}
+
+/* preset + button grids */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.grid--3{grid-template-columns:repeat(3,1fr)}
+.chip{
+  height:30px;padding:0 8px;border-radius:var(--r);
+  background:var(--raise);color:#B9BEC4;font-size:12px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  text-align:center;transition:background .12s,color .12s;
+}
+.chip:hover{background:var(--raise-hi);color:var(--text)}
+.chip.is-on{background:var(--safelight-lo);color:var(--safelight)}
+.chip svg{flex-shrink:0}
+.hint{
+  font:400 10.5px/1.5 var(--mono);color:#5E656C;
+  margin:11px 0 0;letter-spacing:.01em;
+}
+
+/* crop controls */
+.cropbar{display:none;flex-direction:column;gap:6px;margin-top:9px}
+.cropbar.is-on{display:flex}
+.cropbar__r{display:flex;gap:6px;align-items:center}
+.cropbar__r[hidden]{display:none}
+.cropfill{font-size:12px;color:var(--dim);flex-shrink:0}
+.cropbar__r>.chip{flex:1}
+.cropbar #ratio{flex:1.15;min-width:0}
+.cropdim{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+.cropdim input{
+  flex:1;min-width:0;height:30px;padding:0 6px;
+  background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
+  color:var(--text);font:400 11.5px/1 var(--mono);text-align:center;
+  appearance:textfield;-moz-appearance:textfield;
+}
+.cropdim input::-webkit-outer-spin-button,
+.cropdim input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.cropdim input:focus{outline:none;border-color:var(--safelight)}
+.cropdim input:invalid{border-color:#8C4A3A}
+.cropdim i{font:400 10px/1 var(--mono);color:var(--dim);font-style:normal;flex-shrink:0}
+.cropbar .chip--go{background:var(--safelight);color:#1A1206;font-weight:600}
+.cropbar .chip--go:hover{background:#FFB852;color:#1A1206}
+
+/* ─── dialog ─────────────────────────────────────────────── */
+dialog{
+  border:1px solid var(--line);border-radius:9px;padding:0;
+  background:var(--graphite);color:var(--text);width:min(94vw,380px);
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.9);
+}
+dialog::backdrop{background:rgba(8,9,10,.66);backdrop-filter:blur(3px)}
+.dlg__h{
+  padding:15px 18px;border-bottom:1px solid var(--line-soft);
+  font:400 9.5px/1 var(--mono);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);
+}
+.dlg__b{padding:16px 18px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.row>label{font-size:12.5px;color:#B9BEC4;flex-shrink:0}
+.row input[type=text],.row select{
+  background:var(--raise);border:1px solid var(--line-soft);border-radius:var(--r);
+  height:30px;padding:0 9px;min-width:0;flex:1;
+  font:400 12px/1 var(--mono);
+}
+.row select{cursor:pointer;-webkit-appearance:none;appearance:none;padding-right:24px;
+  background-image:linear-gradient(45deg,transparent 50%,#868D95 50%),linear-gradient(135deg,#868D95 50%,transparent 50%);
+  background-position:calc(100% - 13px) 13px,calc(100% - 9px) 13px;
+  background-size:4px 4px;background-repeat:no-repeat;}
+.row input[type=range]{flex:1;accent-color:var(--safelight);min-width:0}
+.row .num{font:400 11px/1 var(--mono);color:var(--dim);min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.opt{margin:-3px 0 13px}
+.opt label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#B9BEC4;cursor:pointer}
+.opt input[type=checkbox]{accent-color:var(--safelight);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+.opt__note{margin:5px 0 0 21px;font-size:11.5px;line-height:1.55;color:var(--dim)}
+.opt__sub{display:inline-flex!important;margin-top:6px;font-size:11.5px}
+.dlg__warn{margin:0 0 13px;padding:9px 11px;border-radius:7px;font-size:11.5px;line-height:1.55;
+  background:rgba(242,163,60,.09);border:1px solid rgba(242,163,60,.26);color:#E9C48A}
+.dlg__f{
+  display:flex;gap:8px;justify-content:space-between;align-items:center;
+  padding:13px 18px;border-top:1px solid var(--line-soft);
+}
+.dlg__note{font:400 10.5px/1 var(--mono);color:#5E656C}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);
+  background:var(--raise);border:1px solid var(--line);border-radius:var(--r);
+  padding:9px 14px;font-size:12.5px;color:var(--text);
+  box-shadow:0 14px 34px -10px rgba(0,0,0,.8);
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:60;
+  max-width:min(90vw,420px);
+}
+.toast.is-on{opacity:1;transform:translate(-50%,0)}
+.toast.is-warn{border-color:var(--safelight-lo)}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ─── responsive ─────────────────────────────────────────── */
+@media (max-width:880px){
+  .work{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  .panel{border-left:0;border-top:1px solid var(--line-soft);max-height:47dvh}
+  .meta{display:none}
+  .btn kbd{display:none}
+  .btn--go{padding:0 12px}
+  .btn .lbl{display:none}
+  #open,#compare{width:30px;padding:0;justify-content:center}
+  .acts{overflow-x:auto;scrollbar-width:none;flex-shrink:1;min-width:0}
+  .acts::-webkit-scrollbar{display:none}
+  .acts>*{flex-shrink:0}
+}
+@media (max-width:560px){ .mark b{display:none} }
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="mark">
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" fill="#F2A33C" opacity=".13"/>
+      <circle cx="8" cy="8" r="4.4" fill="#F2A33C" opacity=".28"/>
+      <circle cx="8" cy="8" r="2.1" fill="#F2A33C"/>
+    </svg>
+    <b>Safelight</b>
+  </div>
+  <div class="meta" id="meta">No image open</div>
+  <div class="acts">
+    <button class="btn" id="open" title="Open image">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.8v6.6"/><path d="M4.4 4.4L7 1.8l2.6 2.6"/><path d="M2 9.3v2.2a1 1 0 001 1h8a1 1 0 001-1V9.3"/></svg>
+      <span class="lbl">Open image</span>
+    </button>
+    <span class="sep"></span>
+    <button class="btn btn--icon" id="undo" disabled title="Undo (⌘Z)" aria-label="Undo">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6.2a3.3 3.3 0 010 6.6H6"/><path d="M5.4 3.4L2.8 6l2.6 2.6"/></svg>
+    </button>
+    <button class="btn btn--icon" id="redo" disabled title="Redo (⇧⌘Z)" aria-label="Redo">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6H4.8a3.3 3.3 0 000 6.6H8"/><path d="M8.6 3.4L11.2 6 8.6 8.6"/></svg>
+    </button>
+    <button class="btn" id="compare" disabled title="Hold to see the original (\)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M.9 7S3.1 3.1 7 3.1 13.1 7 13.1 7 10.9 10.9 7 10.9.9 7 .9 7z"/><circle cx="7" cy="7" r="1.7"/></svg>
+      <span class="lbl">Compare</span><kbd>\</kbd>
+    </button>
+    <button class="btn" id="reset" disabled>Reset all</button>
+    <button class="btn btn--go" id="export" disabled>Export<kbd>⌘S</kbd></button>
+  </div>
+</header>
+
+<div class="work">
+  <div class="area">
+  <div class="stage is-empty" id="stage">
+    <div class="holder" id="holder">
+      <div class="crop__pad" id="cropPad" hidden></div>
+      <canvas id="view" class="is-hidden"></canvas>
+      <div class="crop" id="crop">
+        <div class="crop__mask"><div class="crop__hole" id="cropHole"></div></div>
+        <div class="crop__box" id="cropBox">
+          <div class="crop__grid"><i></i><i></i><i></i><i></i></div>
+          <div class="crop__h" data-h="nw"></div><div class="crop__h" data-h="n"></div>
+          <div class="crop__h" data-h="ne"></div><div class="crop__h" data-h="e"></div>
+          <div class="crop__h" data-h="se"></div><div class="crop__h" data-h="s"></div>
+          <div class="crop__h" data-h="sw"></div><div class="crop__h" data-h="w"></div>
+          <div class="crop__size" id="cropSize">0 × 0</div>
+        </div>
+      </div>
+      <div class="empty" id="empty">
+        <div class="glow"></div>
+        <h1>Drop a photo to start</h1>
+        <p>Or open one from your computer. You can also paste an image from the clipboard.</p>
+        <button class="btn btn--go" id="open2">Open image</button>
+      </div>
+    </div>
+    </div>
+    <div class="zoom" id="zoom" hidden>
+      <button id="zFit" class="is-on" title="Fit to window (F)">Fit</button>
+      <button id="zOut" title="Zoom out (−)" aria-label="Zoom out">−</button>
+      <button class="pct" id="zPct" tabindex="-1">100%</button>
+      <button id="zIn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button id="z100" title="Actual size (1)">1:1</button>
+    </div>
+  </div>
+
+  <aside class="panel is-idle" id="panel">
+    <div class="scope">
+      <div class="scope__head">Histogram <span id="scopeNote">no image</span></div>
+      <div class="scope__frame"><canvas id="scope" width="600" height="148"></canvas></div>
+      <div class="scope__clip"><span>shadows</span><span>midtones</span><span>highlights</span></div>
+    </div>
+
+    <details class="sec" id="secPresets" open>
+      <summary>Presets<i class="sec__dot"></i></summary>
+      <div class="sec__body"><div class="grid" id="presets"></div></div>
+    </details>
+
+    <div id="groups"></div>
+
+    <details class="sec" id="secFrame" open>
+      <summary>Frame<i class="sec__dot"></i></summary>
+      <div class="sec__body">
+        <div class="grid grid--3">
+          <button class="chip" id="rotL" title="Rotate left ([)">↺ 90°</button>
+          <button class="chip" id="rotR" title="Rotate right (])">↻ 90°</button>
+          <button class="chip" id="cropBtn" title="Crop (C)">Crop</button>
+          <button class="chip" id="flipH">Flip ⇄</button>
+          <button class="chip" id="flipV">Flip ⇅</button>
+          <button class="chip" id="fitBtn">Fit view</button>
+        </div>
+        <div class="cropbar" id="cropbar">
+          <div class="cropbar__r">
+          <select class="chip" id="ratio" aria-label="Crop ratio">
+            <option value="0">Free</option>
+            <option value="1">1:1</option>
+            <option value="1.3333">4:3</option>
+            <option value="0.75">3:4</option>
+            <option value="1.5">3:2</option>
+            <option value="0.6667">2:3</option>
+            <option value="1.7778">16:9</option>
+            <option value="-1">Original</option>
+          </select>
+          <span class="cropdim">
+            <input type="number" id="cropW" min="1" step="1" inputmode="numeric" aria-label="Crop width in pixels">
+            <i>×</i>
+            <input type="number" id="cropH" min="1" step="1" inputmode="numeric" aria-label="Crop height in pixels">
+          </span>
+          </div>
+          <div class="cropbar__r" id="cropFillRow" hidden>
+            <label class="cropfill" for="cropFill">Added space</label>
+            <select class="chip" id="cropFill" style="flex:1">
+              <option value="transparent">Transparent</option>
+              <option value="#FFFFFF">White</option>
+              <option value="#000000">Black</option>
+            </select>
+          </div>
+          <div class="cropbar__r">
+            <button class="chip" id="cropCancel">Cancel</button>
+            <button class="chip chip--go" id="cropApply">Apply crop</button>
+          </div>
+        </div>
+        <p class="hint" id="frameHint">Rotation and crop are applied to the image right away — undo steps back.</p>
+      </div>
+    </details>
+  </aside>
+</div>
+
+<input type="file" id="file" accept="image/*" class="sr">
+
+<dialog id="dlg">
+  <form method="dialog">
+    <div class="dlg__h">Export image</div>
+    <div class="dlg__b">
+      <div class="row"><label for="exName">File name</label><input type="text" id="exName" value="photo"></div>
+      <div class="row"><label for="exFmt">Format</label>
+        <select id="exFmt">
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </div>
+      <div class="row" id="qRow"><label for="exQ">Quality</label><input type="range" id="exQ" min="40" max="100" value="92"><span class="num" id="qNum">92</span></div>
+      <div class="row"><label for="exS">Size</label><input type="range" id="exS" min="10" max="100" value="100"><span class="num" id="sNum">100%</span></div>
+
+      <div class="opt" id="exResRow" hidden>
+        <label><input type="checkbox" id="exRes" checked> Fine resampling</label>
+        <p class="opt__note">Lanczos-3, computed from the full-resolution original. A second or two on a large photo, and it holds edge detail that a plain shrink smears away.</p>
+      </div>
+
+      <div class="opt" id="exMetaRow" hidden>
+        <label><input type="checkbox" id="exMeta" checked> Keep camera data</label>
+        <p class="opt__note">Camera, lens, exposure and date carry over from the original file.
+          <label class="opt__sub" id="exGpsWrap" hidden><input type="checkbox" id="exGps"> include GPS location</label>
+        </p>
+      </div>
+
+      <p class="dlg__warn" id="exWarn" hidden></p>
+    </div>
+    <div class="dlg__f">
+      <span class="dlg__note" id="exDims">—</span>
+      <span style="display:flex;gap:8px">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn btn--go" id="exGo" value="go">Export</button>
+      </span>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ══ model ══════════════════════════════════════════════════ */
+
+const ADJ = [
+  {name:'Light', items:[
+    {id:'exposure',   label:'Exposure',   min:-100, max:100, def:0},
+    {id:'contrast',   label:'Contrast',   min:-100, max:100, def:0},
+    {id:'fade',       label:'Fade',       min:0,    max:100, def:0}
+  ]},
+  {name:'Color', items:[
+    {id:'saturation', label:'Saturation', min:-100, max:100, def:0},
+    {id:'warmth',     label:'Warmth',     min:-100, max:100, def:0},
+    {id:'tint',       label:'Tint',       min:-100, max:100, def:0},
+    {id:'hue',        label:'Hue shift',  min:-180, max:180, def:0}
+  ]},
+  {name:'Detail', items:[
+    {id:'sharpen',    label:'Sharpen',    min:0,    max:100, def:0},
+    {id:'blur',       label:'Blur',       min:0,    max:40,  def:0}
+  ]},
+  {name:'Finish', items:[
+    {id:'vignette',   label:'Vignette',   min:-100, max:100, def:0},
+    {id:'grain',      label:'Grain',      min:0,    max:100, def:0},
+    {id:'tone',       label:'Sepia tone', min:0,    max:100, def:0}
+  ]}
+];
+
+const FIELDS = ADJ.flatMap(g => g.items);
+const DEFAULTS = Object.fromEntries(FIELDS.map(f => [f.id, f.def]));
+
+const PRESETS = {
+  'Original':      {},
+  'Punch':         {contrast:22, saturation:18, sharpen:28, exposure:4},
+  'Faded':         {fade:38, contrast:-14, saturation:-20, grain:12},
+  'Noir':          {saturation:-100, contrast:32, exposure:-4, grain:20, vignette:30},
+  'Sepia print':   {tone:72, saturation:-30, contrast:12, fade:14, vignette:22, grain:10},
+  'Cold press':    {warmth:-40, saturation:-8, contrast:16, exposure:3},
+  'Golden hour':   {warmth:44, exposure:6, contrast:8, saturation:14, vignette:14},
+  'Cross process': {hue:-16, saturation:36, contrast:26, warmth:-20, fade:10}
+};
+
+const S = {
+  src:null,          // working canvas — transforms + crops are baked in
+  base:null,         // pristine original, for Reset all
+  adj:{...DEFAULTS},
+  name:'photo',
+  type:'image/jpeg',
+  fit:true,
+  zoom:1,
+  compare:false,
+  cropping:false,
+  crop:{x:0,y:0,w:1,h:1},
+  hist:[],
+  histAt:-1,
+  exif:null,         // APP1 segment lifted from the original JPEG
+  gps:false,         // does that segment carry a location?
+  alpha:false        // does the image have transparent pixels?
+};
+
+/* ══ elements ═══════════════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+const stage=$('stage'), holder=$('holder'), cv=$('view'), empty=$('empty');
+const cx = cv.getContext('2d', {willReadFrequently:true});
+const scope=$('scope'), sx=scope.getContext('2d');
+const cropLayer=$('crop'), cropBox=$('cropBox'), cropSize=$('cropSize');
+const cropW=$('cropW'), cropH=$('cropH');
+const meta=$('meta'), toastEl=$('toast'), dlg=$('dlg');
+
+let rafPending = false;
+const ctlEls = {};   // id -> {row, input, val}
+
+/* ══ helpers ════════════════════════════════════════════════ */
+
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+
+let toastTimer;
+function toast(msg, warn){
+  toastEl.textContent = msg;
+  toastEl.classList.toggle('is-warn', !!warn);
+  toastEl.classList.add('is-on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), 2600);
+}
+
+function canvasOf(w,h){
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return c;
+}
+
+/* ══ build the panel ════════════════════════════════════════ */
+
+const groupsEl = $('groups');
+ADJ.forEach(group => {
+  const sec = document.createElement('details');
+  sec.className = 'sec';
+  sec.open = true;
+  sec.innerHTML = '<summary>' + group.name + '<i class="sec__dot"></i></summary>';
+  const body = document.createElement('div');
+  body.className = 'sec__body';
+
+  group.items.forEach(f => {
+    const row = document.createElement('label');
+    row.className = 'ctl';
+    const originPct = ((f.def - f.min) / (f.max - f.min)) * 100;
+    const tick = f.min < 0
+      ? '<i class="ctl__tick" style="left:calc(' + originPct + '% - 0.5px)"></i>' : '';
+    row.innerHTML =
+      '<span class="ctl__top"><span class="ctl__label">' + f.label + '</span>' +
+      '<span class="ctl__val">0</span></span>' +
+      '<span class="ctl__track">' + tick +
+      '<input type="range" min="' + f.min + '" max="' + f.max + '" step="1" value="' + f.def +
+      '" aria-label="' + f.label + '"></span>';
+
+    const input = row.querySelector('input');
+    const val = row.querySelector('.ctl__val');
+    ctlEls[f.id] = {row, input, val, field:f, section:sec};
+
+    input.addEventListener('input', () => {
+      S.adj[f.id] = +input.value;
+      syncCtl(f.id);
+      clearPresetSelection();
+      requestRender();
+    });
+    input.addEventListener('change', () => commit());
+    row.addEventListener('dblclick', e => {
+      e.preventDefault();
+      S.adj[f.id] = f.def;
+      input.value = f.def;
+      syncCtl(f.id);
+      requestRender();
+      commit();
+    });
+
+    body.appendChild(row);
+  });
+
+  sec.appendChild(body);
+  groupsEl.appendChild(sec);
+});
+
+const presetsEl = $('presets');
+Object.keys(PRESETS).forEach(name => {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.type = 'button';
+  b.textContent = name;
+  b.addEventListener('click', () => {
+    if(!S.src) return;
+    S.adj = {...DEFAULTS, ...PRESETS[name]};
+    syncAll();
+    requestRender();
+    commit();
+    [...presetsEl.children].forEach(c => c.classList.toggle('is-on', c === b));
+  });
+  presetsEl.appendChild(b);
+});
+
+/* keep the controls and the model in step */
+function syncCtl(id){
+  const c = ctlEls[id];
+  if(!c) return;
+  const v = S.adj[id];
+  c.val.textContent = (v > 0 && c.field.min < 0 ? '+' : '') + v;
+  c.row.classList.toggle('is-on', v !== c.field.def);
+  const touched = ADJ.find(g => g.items.some(f => f.id === id))
+    .items.some(f => S.adj[f.id] !== f.def);
+  c.section.classList.toggle('is-touched', touched);
+}
+function syncAll(){
+  FIELDS.forEach(f => {
+    ctlEls[f.id].input.value = S.adj[f.id];
+    syncCtl(f.id);
+  });
+}
+
+/* ══ render pipeline ════════════════════════════════════════ */
+
+/* Everything is drawn through one function so that the preview and the
+   exported file come out of exactly the same code path. `scale` is the
+   ratio of target pixels to source pixels, so effects sized in image
+   pixels (blur, grain) stay put when the preview is scaled down. */
+
+function colorFilter(a){
+  const f = [];
+  f.push('brightness(' + Math.pow(2, a.exposure/100).toFixed(4) + ')');
+  f.push('contrast(' + ((100 + a.contrast)/100).toFixed(4) + ')');
+  f.push('saturate(' + ((100 + a.saturation)/100).toFixed(4) + ')');
+  if(a.hue)  f.push('hue-rotate(' + a.hue + 'deg)');
+  if(a.tone) f.push('sepia(' + (a.tone/100).toFixed(3) + ')');
+  return f.join(' ');
+}
+
+const scratch = {};
+function scratchCanvas(key, w, h){
+  let c = scratch[key];
+  if(!c) c = scratch[key] = canvasOf(w, h);
+  if(c.width !== w || c.height !== h){ c.width = w; c.height = h; }
+  else c.getContext('2d').clearRect(0, 0, w, h);
+  return c;
+}
+
+/* Blur samples the transparent void past the image edge, which leaves a
+   fogged border. Stretching the outermost pixels outward first fixes it. */
+function edgeExtend(s, p){
+  const w = s.width, h = s.height;
+  const c = scratchCanvas('pad', w + 2*p, h + 2*p);
+  const x = c.getContext('2d');
+  x.drawImage(s, 0,0,1,1,       0,0,p,p);
+  x.drawImage(s, w-1,0,1,1,     p+w,0,p,p);
+  x.drawImage(s, 0,h-1,1,1,     0,p+h,p,p);
+  x.drawImage(s, w-1,h-1,1,1,   p+w,p+h,p,p);
+  x.drawImage(s, 0,0,w,1,       p,0,w,p);
+  x.drawImage(s, 0,h-1,w,1,     p,p+h,w,p);
+  x.drawImage(s, 0,0,1,h,       0,p,p,h);
+  x.drawImage(s, w-1,0,1,h,     p+w,p,p,h);
+  x.drawImage(s, p, p);
+  return c;
+}
+
+let noiseTile = null;
+function getNoise(){
+  if(noiseTile) return noiseTile;
+  const n = canvasOf(128,128), nx = n.getContext('2d');
+  const d = nx.createImageData(128,128);
+  for(let i = 0; i < d.data.length; i += 4){
+    const v = 108 + (Math.random() * 40 | 0);
+    d.data[i] = d.data[i+1] = d.data[i+2] = v;
+    d.data[i+3] = 255;
+  }
+  nx.putImageData(d, 0, 0);
+  noiseTile = n;
+  return n;
+}
+
+function unsharp(ctx, w, h, amount){
+  if(w < 3 || h < 3) return;
+  let img;
+  try { img = ctx.getImageData(0,0,w,h); } catch(e){ return; }
+  const s = img.data;
+  const out = new Uint8ClampedArray(s);
+  const k = amount * 1.15;
+  const c = 1 + 4*k;
+  const rowBytes = w * 4;
+  for(let y = 1; y < h-1; y++){
+    let i = (y*w + 1) * 4;
+    for(let x = 1; x < w-1; x++, i += 4){
+      for(let ch = 0; ch < 3; ch++){
+        const p = i + ch;
+        out[p] = c*s[p] - k*(s[p-4] + s[p+4] + s[p-rowBytes] + s[p+rowBytes]);
+      }
+    }
+  }
+  s.set(out);
+  ctx.putImageData(img, 0, 0);
+}
+
+function overlays(ctx, w, h, a, scale){
+  if(a.warmth){
+    ctx.save();
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.globalAlpha = clamp(Math.abs(a.warmth)/100 * 0.95, 0, 1);
+    ctx.fillStyle = a.warmth > 0 ? 'rgb(255,146,42)' : 'rgb(40,142,255)';
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+  if(a.tint){
+    ctx.save();
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.globalAlpha = clamp(Math.abs(a.tint)/100 * 0.7, 0, 1);
+    ctx.fillStyle = a.tint > 0 ? 'rgb(255,90,215)' : 'rgb(120,255,130)';
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+  if(a.fade){
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighten';
+    const v = Math.round(a.fade/100 * 60);
+    ctx.fillStyle = 'rgb(' + v + ',' + v + ',' + (v+3) + ')';
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+  if(a.vignette){
+    const amt = Math.abs(a.vignette)/100;
+    const rgb = a.vignette > 0 ? '0,0,0' : '255,255,255';
+    const g = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.2, w/2, h/2, Math.hypot(w,h)/2);
+    g.addColorStop(0,    'rgba(' + rgb + ',0)');
+    g.addColorStop(0.55, 'rgba(' + rgb + ',' + (amt*0.16).toFixed(3) + ')');
+    g.addColorStop(1,    'rgba(' + rgb + ',' + (amt*0.82).toFixed(3) + ')');
+    ctx.save();
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+  if(a.grain){
+    const gs = Math.max(scale, 0.6);
+    ctx.save();
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.globalAlpha = clamp(a.grain/100 * 0.6, 0, 1);
+    ctx.scale(gs, gs);
+    ctx.fillStyle = ctx.createPattern(getNoise(), 'repeat');
+    ctx.fillRect(0, 0, w/gs + 2, h/gs + 2);
+    ctx.restore();
+  }
+}
+
+/* ══ resampling ═════════════════════════════════════════════
+   Shrinking by a lot in one drawImage undersamples the source and
+   folds the frequencies in between back as aliasing. The usual
+   browser workaround is to halve repeatedly, but measured against
+   a reference implementation on a zone plate, Chrome's own
+   high-quality path already matches the halving chain — and going
+   through the chain first then costs a second resample, which
+   comes out slightly worse than doing nothing. So the default draw
+   is left alone, and the fix on offer is a real filter instead.
+
+   Lanczos-3 windows a sinc, the ideal reconstruction filter, to
+   three lobes. Run straight off the full-resolution source it lands
+   within 0.26 RMSE of Pillow's implementation — exact, to rounding. */
+
+const clamp8 = v => v < 0 ? 0 : v > 255 ? 255 : v;
+const sinc = x => { const t = Math.PI * x; return Math.sin(t) / t; };
+
+/* Lanczos weights for one axis. The kernel has to be *stretched*
+   by the reduction ratio when shrinking — a fixed 3-pixel reach
+   would skip most of the source and alias exactly like the naive
+   single-pass draw this is meant to replace. */
+function taps(sLen, dLen, lobes){
+  const scale = sLen / dLen;
+  const wide = scale > 1 ? scale : 1;
+  const support = lobes * wide;
+  const rows = [];
+  for(let i = 0; i < dLen; i++){
+    const c = (i + 0.5) * scale - 0.5;
+    const a = Math.max(0, Math.ceil(c - support));
+    const b = Math.min(sLen - 1, Math.floor(c + support));
+    const w = new Float32Array(Math.max(1, b - a + 1));
+    let sum = 0;
+    for(let j = a; j <= b; j++){
+      const t = (j - c) / wide;
+      const v = t === 0 ? 1 : (Math.abs(t) < lobes ? sinc(t) * sinc(t / lobes) : 0);
+      w[j - a] = v; sum += v;
+    }
+    if(sum) for(let k = 0; k < w.length; k++) w[k] /= sum;
+    rows.push({a, w});
+  }
+  return rows;
+}
+
+/* Two 1-D passes instead of a 2-D kernel: 12 taps per pixel rather
+   than 36, for the same result, because the kernel is separable.
+   Worked in horizontal bands so a 24MP export never holds the whole
+   float buffer at once, and awaited between bands so the tab keeps
+   painting — this is ~2s of arithmetic on a large photo. Colour is
+   carried premultiplied so transparent pixels can't bleed into
+   their neighbours. */
+async function lanczos(src, tw, th, onProgress, lobes){
+  lobes = lobes || 3;
+  const sw = src.width, sh = src.height;
+  const sctx = src.getContext('2d', {willReadFrequently:true});
+  const hx = taps(sw, tw, lobes), vy = taps(sh, th, lobes);
+
+  const out = canvasOf(tw, th);
+  const octx = out.getContext('2d');
+  const od = octx.createImageData(tw, th), dd = od.data;
+
+  const BAND = 128;
+  for(let y0 = 0; y0 < th; y0 += BAND){
+    if(onProgress && y0){
+      onProgress(y0 / th);
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    const y1 = Math.min(th, y0 + BAND);
+    const r0 = vy[y0].a;
+    const r1 = Math.min(sh, vy[y1-1].a + vy[y1-1].w.length);
+    const rows = r1 - r0;
+    const sd = sctx.getImageData(0, r0, sw, rows).data;
+    const mid = new Float32Array(tw * rows * 4);
+
+    for(let y = 0; y < rows; y++){
+      const rin = y * sw * 4, rout = y * tw * 4;
+      for(let x = 0; x < tw; x++){
+        const t = hx[x], w = t.w;
+        let r = 0, g = 0, b = 0, al = 0;
+        for(let k = 0; k < w.length; k++){
+          const i = rin + (t.a + k) * 4, wk = w[k], av = sd[i+3];
+          const pm = av / 255 * wk;
+          r += sd[i] * pm; g += sd[i+1] * pm; b += sd[i+2] * pm;
+          al += av * wk;
+        }
+        const o = rout + x * 4;
+        mid[o] = r; mid[o+1] = g; mid[o+2] = b; mid[o+3] = al;
+      }
+    }
+
+    for(let y = y0; y < y1; y++){
+      const t = vy[y], w = t.w, base = t.a - r0;
+      for(let x = 0; x < tw; x++){
+        let r = 0, g = 0, b = 0, al = 0;
+        for(let k = 0; k < w.length; k++){
+          const i = ((base + k) * tw + x) * 4, wk = w[k];
+          r += mid[i] * wk; g += mid[i+1] * wk; b += mid[i+2] * wk; al += mid[i+3] * wk;
+        }
+        const a8 = clamp8(al), un = a8 > 0.5 ? 255 / a8 : 0;
+        const o = (y * tw + x) * 4;
+        dd[o]   = clamp8(r * un);
+        dd[o+1] = clamp8(g * un);
+        dd[o+2] = clamp8(b * un);
+        dd[o+3] = a8;
+      }
+    }
+  }
+  octx.putImageData(od, 0, 0);
+  return out;
+}
+
+/* `from` lets export hand in an already-resampled source; the preview
+   passes nothing and draws from the original. Either way `scale` stays
+   measured against the true source so blur and grain size correctly. */
+function drawInto(ctx, w, h, a, from){
+  const src = from || S.src;
+  const scale = w / S.src.width;
+  const blurPx = a.blur * scale;
+  ctx.save();
+  ctx.clearRect(0,0,w,h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if(blurPx > 0.35){
+    const tmp = scratchCanvas('flat', w, h);
+    const tx = tmp.getContext('2d');
+    tx.imageSmoothingQuality = 'high';
+    tx.filter = colorFilter(a);
+    tx.drawImage(src, 0, 0, src.width, src.height, 0, 0, w, h);
+    tx.filter = 'none';
+    const p = Math.min(500, Math.ceil(blurPx * 3));
+    ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
+    ctx.drawImage(edgeExtend(tmp, p), -p, -p);
+  } else {
+    ctx.filter = colorFilter(a);
+    ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, w, h);
+  }
+  ctx.restore();
+  if(a.sharpen > 0) unsharp(ctx, w, h, a.sharpen/100);
+  overlays(ctx, w, h, a, scale);
+}
+
+/* ══ preview ════════════════════════════════════════════════ */
+
+function fitZoom(){
+  if(!S.src) return 1;
+  const pad = 48;
+  const aw = Math.max(80, stage.clientWidth - pad);
+  const ah = Math.max(80, stage.clientHeight - pad);
+  let w = S.src.width, h = S.src.height;
+  if(S.cropping){
+    // Fit the photo and the frame together, so pulling an edge outward
+    // zooms out to meet it rather than pushing it off screen.
+    const c = S.crop;
+    w *= Math.max(1, c.x + c.w) - Math.min(0, c.x);
+    h *= Math.max(1, c.y + c.h) - Math.min(0, c.y);
+  }
+  return Math.min(3, aw/w, ah/h);
+}
+const zoomNow = () => S.fit ? fitZoom() : S.zoom;
+
+function requestRender(){
+  if(rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => { rafPending = false; render(); });
+}
+
+function render(){
+  if(!S.src) return;
+  const z = zoomNow();
+  const dw = Math.max(1, Math.round(S.src.width * z));
+  const dh = Math.max(1, Math.round(S.src.height * z));
+  cv.style.width = dw + 'px';
+  cv.style.height = dh + 'px';
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let bw = Math.round(dw * dpr);
+  bw = Math.min(bw, S.src.width * 2, 2800);
+  bw = Math.max(1, bw);
+  const bh = Math.max(1, Math.round(bw * dh / dw));
+  if(cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
+
+  drawInto(cx, bw, bh, S.compare ? DEFAULTS : S.adj);
+
+  $('zPct').textContent = Math.round(z * 100) + '%';
+  stage.classList.toggle('is-grab', dw > stage.clientWidth || dh > stage.clientHeight);
+  drawScope();
+  if(S.cropping) layoutCrop();
+}
+
+/* ══ histogram ══════════════════════════════════════════════ */
+
+const scopeSrc = canvasOf(2,2);
+const ssx = scopeSrc.getContext('2d', {willReadFrequently:true});
+
+function drawScope(){
+  const w = scope.width, h = scope.height;
+  sx.clearRect(0,0,w,h);
+  if(!S.src || !cv.width) return;
+
+  /* Point-sample the preview into a small buffer — cheap every frame, and
+     nearest-neighbour keeps real pixel values so clipping stays honest. */
+  const sw = Math.max(1, Math.min(300, cv.width));
+  const sh = Math.max(1, Math.round(sw * cv.height / cv.width));
+  if(scopeSrc.width !== sw || scopeSrc.height !== sh){ scopeSrc.width = sw; scopeSrc.height = sh; }
+  ssx.imageSmoothingEnabled = false;
+  ssx.clearRect(0,0,sw,sh);
+  ssx.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, sw, sh);
+
+  let d;
+  try { d = ssx.getImageData(0,0,sw,sh).data; } catch(e){ return; }
+  const n = sw * sh;
+
+  const R = new Float32Array(256), G = new Float32Array(256), B = new Float32Array(256);
+  for(let i = 0; i < d.length; i += 4){ R[d[i]]++; G[d[i+1]]++; B[d[i+2]]++; }
+
+  const smooth = a => {
+    const o = new Float32Array(256);
+    for(let i = 0; i < 256; i++)
+      o[i] = (a[Math.max(0,i-1)] + a[i]*2 + a[Math.min(255,i+1)]) / 4;
+    return o;
+  };
+  const rs = smooth(R), gs = smooth(G), bs = smooth(B);
+
+  let max = 0;
+  for(let i = 1; i < 255; i++) max = Math.max(max, rs[i], gs[i], bs[i]);
+  if(max <= 0){ $('scopeNote').textContent = 'flat'; return; }
+  max *= 1.04;
+
+  sx.globalCompositeOperation = 'lighter';
+  const plot = (arr, color) => {
+    sx.beginPath();
+    sx.moveTo(0, h);
+    for(let i = 0; i < 256; i++)
+      sx.lineTo((i/255)*w, h - Math.min(1, arr[i]/max) * (h - 4));
+    sx.lineTo(w, h);
+    sx.closePath();
+    sx.fillStyle = color;
+    sx.fill();
+  };
+  plot(rs, 'rgba(226,66,46,.62)');
+  plot(gs, 'rgba(58,196,96,.62)');
+  plot(bs, 'rgba(58,124,240,.62)');
+  sx.globalCompositeOperation = 'source-over';
+
+  const lo = (R[0] + G[0] + B[0]) / (3*n) * 100;
+  const hi = (R[255] + G[255] + B[255]) / (3*n) * 100;
+  const bits = [];
+  if(lo > 0.4) bits.push(lo.toFixed(1) + '% clipped black');
+  if(hi > 0.4) bits.push(hi.toFixed(1) + '% clipped white');
+  $('scopeNote').textContent = bits.length ? bits.join(' · ') : 'no clipping';
+}
+
+/* ══ history ════════════════════════════════════════════════ */
+
+/* Entries hold a reference to the baked source canvas plus a snapshot of
+   the sliders. Adjustments reuse the same canvas, so only real pixel
+   operations (rotate, flip, crop) cost memory. */
+
+function commit(){
+  if(!S.src) return;
+  const top = S.hist[S.histAt];
+  if(top && top.src === S.src && JSON.stringify(top.adj) === JSON.stringify(S.adj)) return;
+  S.hist.length = S.histAt + 1;
+  S.hist.push({src:S.src, adj:{...S.adj}});
+  if(S.hist.length > 40) S.hist.shift();
+  S.histAt = S.hist.length - 1;
+  trimHistory();
+  updateChrome();
+}
+
+/* Every other pixel op shrinks the image or leaves it alone, so a count
+   of 40 was budget enough. Growing the canvas breaks that assumption, so
+   the history is now also capped by memory. Entries share a canvas
+   unless a pixel op made a new one, hence counting each bitmap once. */
+function trimHistory(){
+  const BUDGET = 100e6;                     // pixels — roughly 400 MB
+  while(S.hist.length > 2){
+    const seen = new Set();
+    let px = 0;
+    for(const e of S.hist){
+      if(seen.has(e.src)) continue;
+      seen.add(e.src);
+      px += e.src.width * e.src.height;
+    }
+    if(px <= BUDGET) break;
+    S.hist.shift();
+    S.histAt--;
+  }
+  S.histAt = Math.max(0, S.histAt);
+}
+
+function step(delta){
+  const at = S.histAt + delta;
+  if(at < 0 || at >= S.hist.length) return;
+  S.histAt = at;
+  const e = S.hist[at];
+  S.src = e.src;
+  S.adj = {...e.adj};
+  syncAll();
+  clearPresetSelection();
+  render();
+  updateChrome();
+}
+
+function clearPresetSelection(){
+  [...$('presets').children].forEach(c => c.classList.remove('is-on'));
+}
+
+function updateChrome(){
+  const has = !!S.src;
+  $('undo').disabled = S.histAt <= 0;
+  $('redo').disabled = S.histAt >= S.hist.length - 1;
+  ['compare','reset','export'].forEach(id => { $(id).disabled = !has; });
+  if(has){
+    meta.innerHTML = '<em>' + escapeHtml(S.name) + '</em> · ' + S.src.width + ' × ' + S.src.height;
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+/* ══ loading ════════════════════════════════════════════════ */
+
+async function loadFile(file){
+  if(!file) return;
+  if(!/^image\//.test(file.type)){
+    toast("That file isn't an image we can read. Try JPG, PNG, WebP, GIF, or AVIF.", true);
+    return;
+  }
+  let bmp;
+  try {
+    bmp = await createImageBitmap(file, {imageOrientation:'from-image'});
+  } catch(e){
+    try { bmp = await loadViaTag(file); }
+    catch(err){ toast("That image didn't decode. It may be damaged or in a format this browser can't read.", true); return; }
+  }
+
+  const c = canvasOf(bmp.width, bmp.height);
+  c.getContext('2d').drawImage(bmp, 0, 0);
+  if(bmp.close) bmp.close();
+
+  S.base = c;
+  S.src = c;
+  S.adj = {...DEFAULTS};
+
+  S.exif = null; S.gps = false;
+  if(file.type === 'image/jpeg'){
+    try {
+      S.exif = findApp1(new Uint8Array(await file.arrayBuffer()));
+      if(S.exif) S.gps = exifHasGps(S.exif);
+    } catch(e){ S.exif = null; }
+  }
+  S.alpha = file.type === 'image/jpeg' ? false : scanAlpha(c);
+
+  S.name = (file.name || 'photo').replace(/\.[^.]+$/, '') || 'photo';
+  S.type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  S.fit = true;
+  S.hist = [];
+  S.histAt = -1;
+  endCrop();
+
+  empty.hidden = true;
+  $('panel').classList.remove('is-idle');
+  cv.classList.remove('is-hidden');
+  stage.classList.remove('is-empty');
+  $('zoom').hidden = false;
+  $('zFit').classList.add('is-on');
+  $('exName').value = S.name + '-edited';
+  $('exFmt').value = S.type === 'image/png' ? 'image/png' : 'image/jpeg';
+
+  syncAll();
+  clearPresetSelection();
+  render();
+  commit();
+  updateChrome();
+}
+
+function loadViaTag(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(url); res(im); };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+    im.src = url;
+  });
+}
+
+/* ══ transforms ═════════════════════════════════════════════ */
+
+function bake(fn, w, h){
+  const c = canvasOf(w, h);
+  fn(c.getContext('2d'), c);
+  S.src = c;
+  render();
+  commit();
+  updateChrome();
+}
+
+function rotate(dir){
+  if(!S.src) return;
+  endCrop();
+  const s = S.src;
+  bake((x, c) => {
+    x.translate(c.width/2, c.height/2);
+    x.rotate(dir * Math.PI/2);
+    x.drawImage(s, -s.width/2, -s.height/2);
+  }, s.height, s.width);
+}
+
+function flip(horizontal){
+  if(!S.src) return;
+  endCrop();
+  const s = S.src;
+  bake(x => {
+    x.translate(horizontal ? s.width : 0, horizontal ? 0 : s.height);
+    x.scale(horizontal ? -1 : 1, horizontal ? 1 : -1);
+    x.drawImage(s, 0, 0);
+  }, s.width, s.height);
+}
+
+/* ══ crop ═══════════════════════════════════════════════════ */
+
+function startCrop(){
+  if(!S.src) return;
+  S.cropping = true;
+  S.crop = {x:0.06, y:0.06, w:0.88, h:0.88};
+  cropLayer.classList.add('is-on');
+  $('cropbar').classList.add('is-on');
+  $('cropBtn').classList.add('is-on');
+  $('frameHint').textContent = 'Drag the edges, or type an exact size. Pull past an edge to add space around the photo.';
+  $('secFrame').open = true;
+  layoutCrop();
+}
+
+function endCrop(){
+  S.cropping = false;
+  $('cropPad').hidden = true;
+  cropLayer.classList.remove('is-on');
+  $('cropbar').classList.remove('is-on');
+  $('cropBtn').classList.remove('is-on');
+  $('frameHint').textContent = 'Rotation and crop are applied to the image right away — undo steps back.';
+}
+
+function layoutCrop(){
+  const r = cv.getBoundingClientRect();
+  const p = holder.getBoundingClientRect();
+  cropLayer.style.left = (r.left - p.left) + 'px';
+  cropLayer.style.top = (r.top - p.top) + 'px';
+  cropLayer.style.width = r.width + 'px';
+  cropLayer.style.height = r.height + 'px';
+  cropLayer.style.right = 'auto';
+  cropLayer.style.bottom = 'auto';
+
+  const c = S.crop;
+  [cropBox, $('cropHole')].forEach(el => {
+    el.style.left = (c.x * 100) + '%';
+    el.style.top = (c.y * 100) + '%';
+    el.style.width = (c.w * 100) + '%';
+    el.style.height = (c.h * 100) + '%';
+  });
+  const pad = $('cropPad'), grows = cropGrows();
+  pad.hidden = !grows;
+  $('cropFillRow').hidden = !grows;
+  if(grows){
+    const fill = $('cropFill').value;
+    pad.style.left   = (r.left - p.left + c.x * r.width) + 'px';
+    pad.style.top    = (r.top - p.top + c.y * r.height) + 'px';
+    pad.style.width  = (c.w * r.width) + 'px';
+    pad.style.height = (c.h * r.height) + 'px';
+    pad.classList.toggle('is-clear', fill === 'transparent');
+    if(fill !== 'transparent') pad.style.background = fill;
+  }
+
+  const px = cropPx();
+  cropSize.textContent = px.w + ' × ' + px.h;
+  syncCropInputs();
+}
+
+const cropPx = () => ({
+  w: Math.max(1, Math.round(S.crop.w * S.src.width)),
+  h: Math.max(1, Math.round(S.crop.h * S.src.height))
+});
+
+/* Don't overwrite the field someone is mid-way through typing into —
+   they may be on their way from "8" to "800". `force` is for blur,
+   where the value is final and worth normalising. */
+function syncCropInputs(force){
+  if(!S.src) return;
+  const px = cropPx(), a = document.activeElement, L = cropLimits();
+  cropW.max = Math.round(L.w * S.src.width);
+  cropH.max = Math.round(L.h * S.src.height);
+  if(force || a !== cropW) cropW.value = px.w;
+  if(force || a !== cropH) cropH.value = px.h;
+}
+
+/* Resize from the centre, matching what the ratio menu already does,
+   so whatever you framed stays framed. A locked ratio drives the
+   other axis; if that would overflow the image, the typed axis gives. */
+function setCropSize(px, edge){
+  const sw = S.src.width, sh = S.src.height, rn = ratioNorm(), L = cropLimits();
+  let w = clamp(px.w / sw, 1/sw, L.w), h = clamp(px.h / sh, 1/sh, L.h);
+  if(rn){
+    if(edge === 'w'){ h = w / rn; if(h > L.h){ h = L.h; w = h * rn; } }
+    else           { w = h * rn; if(w > L.w){ w = L.w; h = w / rn; } }
+  }
+  const c = S.crop, cx = c.x + c.w/2, cy = c.y + c.h/2;
+  S.crop = {w, h, x: clampPos(cx - w/2, w), y: clampPos(cy - h/2, h)};
+  layoutCrop();
+  requestRender();          // re-fit, so a bigger frame stays on screen
+}
+
+[[cropW,'w'], [cropH,'h']].forEach(([el, edge]) => {
+  el.addEventListener('input', () => {
+    const v = parseInt(el.value, 10);
+    if(!Number.isFinite(v) || v < 1) return;       // still typing — leave it be
+    const px = cropPx();
+    px[edge] = v;
+    setCropSize(px, edge);
+  });
+  el.addEventListener('change', () => syncCropInputs(true));
+  el.addEventListener('blur', () => syncCropInputs(true));
+  el.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); syncCropInputs(true); el.blur(); applyCrop(); }
+  });
+});
+
+/* How far the frame may reach past the photo. Bounded, because an
+   unbounded number in the size field is a request for a canvas the
+   browser can't allocate. */
+function cropLimits(){
+  const sw = S.src.width, sh = S.src.height;
+  let w = Math.min(16384, sw * 3 + 2000);      // 16384 is the canvas ceiling
+  let h = Math.min(16384, sh * 3 + 2000);
+  // A frame at both limits must still be allocatable, so pull both axes
+  // back together until the largest possible canvas fits the budget.
+  const over = (w * h) / 60e6;
+  if(over > 1){ const k = Math.sqrt(over); w = Math.floor(w / k); h = Math.floor(h / k); }
+  return {w: w / sw, h: h / sh};
+}
+const cropGrows = () => {
+  const c = S.crop, e = 1e-6;
+  return c.x < -e || c.y < -e || c.x + c.w > 1 + e || c.y + c.h > 1 + e;
+};
+/* Moving the frame may take it off the photo, but not entirely off —
+   a frame containing no picture at all is never what anyone meant. */
+const clampPos = (v, size) => clamp(v, -size + 0.02, 1 - 0.02);
+
+function ratioNorm(){
+  const v = +$('ratio').value;
+  if(!v) return 0;
+  const r = v === -1 ? (S.src.width / S.src.height) : v;
+  return r * (S.src.height / S.src.width);   // ratio expressed in normalised space
+}
+
+let drag = null;
+cropLayer.addEventListener('pointerdown', e => {
+  if(!S.cropping) return;
+  const handle = e.target.closest('.crop__h');
+  const inBox = e.target === cropBox || e.target.closest('.crop__box');
+  if(!handle && !inBox) return;
+  e.preventDefault();
+  cropLayer.setPointerCapture(e.pointerId);
+  const box = cropLayer.getBoundingClientRect();
+  drag = {
+    mode: handle ? handle.dataset.h : 'move',
+    box,
+    sx: (e.clientX - box.left) / box.width,
+    sy: (e.clientY - box.top) / box.height,
+    start: {...S.crop}
+  };
+});
+
+cropLayer.addEventListener('pointermove', e => {
+  if(!drag) return;
+  const nx = (e.clientX - drag.box.left) / drag.box.width;
+  const ny = (e.clientY - drag.box.top) / drag.box.height;
+  const dx = nx - drag.sx, dy = ny - drag.sy;
+  const s = drag.start;
+  const min = 0.04;
+  let {x, y, w, h} = s;
+
+  const L = cropLimits();
+  if(drag.mode === 'move'){
+    x = clampPos(s.x + dx, s.w);
+    y = clampPos(s.y + dy, s.h);
+  } else {
+    const m = drag.mode;
+    let l = s.x, t = s.y, r = s.x + s.w, b = s.y + s.h;
+    // Each handle is bounded by the opposite edge, which stays put, so
+    // the frame always keeps some of the photo however far it is pulled.
+    if(m.includes('w')) l = clamp(s.x + dx, r - L.w, r - min);
+    if(m.includes('e')) r = clamp(s.x + s.w + dx, l + min, l + L.w);
+    if(m.includes('n')) t = clamp(s.y + dy, b - L.h, b - min);
+    if(m.includes('s')) b = clamp(s.y + s.h + dy, t + min, t + L.h);
+    x = l; y = t; w = r - l; h = b - t;
+
+    const rn = ratioNorm();
+    if(rn){
+      const anchorRight = m.includes('w');
+      const anchorBottom = m.includes('n');
+      if(m === 'n' || m === 's'){ w = h * rn; }
+      else { h = w / rn; }
+      if(h > L.h){ h = L.h; w = h * rn; }
+      if(w > L.w){ w = L.w; h = w / rn; }
+      x = anchorRight ? (s.x + s.w) - w : x;
+      y = anchorBottom ? (s.y + s.h) - h : y;
+      x = clampPos(x, w);
+      y = clampPos(y, h);
+    }
+  }
+  S.crop = {x, y, w, h};
+  layoutCrop();
+});
+
+const endDrag = () => { if(drag){ drag = null; requestRender(); } };
+cropLayer.addEventListener('pointerup', endDrag);
+cropLayer.addEventListener('pointercancel', endDrag);
+
+$('ratio').addEventListener('change', () => {
+  const rn = ratioNorm();
+  if(!rn) return;
+  const c = S.crop;
+  // Choosing a ratio fits inside the photo; padding stays deliberate,
+  // unless the frame has already been pulled out past the edge.
+  const cap = cropGrows() ? cropLimits() : {w:1, h:1};
+  const cxp = c.x + c.w/2, cyp = c.y + c.h/2;
+  let w = c.w, h = w / rn;
+  if(h > cap.h){ h = cap.h; w = h * rn; }
+  if(w > cap.w){ w = cap.w; h = w / rn; }
+  S.crop = {w, h, x: clampPos(cxp - w/2, w), y: clampPos(cyp - h/2, h)};
+  layoutCrop();
+  requestRender();
+});
+
+$('cropFill').addEventListener('change', layoutCrop);
+
+function applyCrop(){
+  const c = S.crop, s = S.src;
+  const x = Math.round(c.x * s.width), y = Math.round(c.y * s.height);
+  const w = Math.max(1, Math.round(c.w * s.width));
+  const h = Math.max(1, Math.round(c.h * s.height));
+  const grew = x < 0 || y < 0 || x + w > s.width || y + h > s.height;
+  const fill = $('cropFill').value;
+  endCrop();
+  try {
+    // Drawing the whole photo at a negative offset handles both cases:
+    // inside the frame it crops, outside it simply falls off the canvas.
+    bake(ctx => {
+      if(grew && fill !== 'transparent'){
+        ctx.fillStyle = fill;
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(s, -x, -y);
+    }, w, h);
+  } catch(err){
+    toast('That frame is larger than this browser can allocate. Try a smaller one.', true);
+    return;
+  }
+  // Clear padding introduces transparency; an opaque fill removes any.
+  if(grew) S.alpha = fill === 'transparent';
+  toast((grew ? 'Canvas is now ' : 'Cropped to ') + w + ' × ' + h);
+}
+
+/* ══ wiring ═════════════════════════════════════════════════ */
+
+$('open').addEventListener('click', () => $('file').click());
+$('open2').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', e => {
+  loadFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+$('undo').addEventListener('click', () => step(-1));
+$('redo').addEventListener('click', () => step(1));
+
+$('reset').addEventListener('click', () => {
+  if(!S.base) return;
+  endCrop();
+  S.src = S.base;
+  S.adj = {...DEFAULTS};
+  S.fit = true;
+  $('zFit').classList.add('is-on');
+  syncAll();
+  clearPresetSelection();
+  render();
+  commit();
+  updateChrome();
+  toast('Back to the original');
+});
+
+/* hold to compare */
+const cmp = $('compare');
+const holdOn  = () => { if(!S.src || S.compare) return; S.compare = true;  cmp.classList.add('is-held'); render(); };
+const holdOff = () => { if(!S.compare) return; S.compare = false; cmp.classList.remove('is-held'); render(); };
+cmp.addEventListener('pointerdown', holdOn);
+['pointerup','pointerleave','pointercancel'].forEach(ev => cmp.addEventListener(ev, holdOff));
+
+/* frame */
+$('rotL').addEventListener('click', () => rotate(-1));
+$('rotR').addEventListener('click', () => rotate(1));
+$('flipH').addEventListener('click', () => flip(true));
+$('flipV').addEventListener('click', () => flip(false));
+$('cropBtn').addEventListener('click', () => S.cropping ? endCrop() : startCrop());
+$('cropCancel').addEventListener('click', endCrop);
+$('cropApply').addEventListener('click', applyCrop);
+$('fitBtn').addEventListener('click', () => setFit());
+
+/* zoom */
+function setFit(){
+  S.fit = true;
+  $('zFit').classList.add('is-on');
+  render();
+}
+function setZoom(z){
+  S.fit = false;
+  S.zoom = clamp(z, 0.05, 16);
+  $('zFit').classList.remove('is-on');
+  render();
+}
+$('zFit').addEventListener('click', setFit);
+$('z100').addEventListener('click', () => setZoom(1));
+$('zIn').addEventListener('click', () => setZoom(zoomNow() * 1.25));
+$('zOut').addEventListener('click', () => setZoom(zoomNow() / 1.25));
+
+stage.addEventListener('wheel', e => {
+  if(!S.src || !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  setZoom(zoomNow() * (e.deltaY < 0 ? 1.1 : 1/1.1));
+}, {passive:false});
+
+/* drag to pan */
+let pan = null;
+stage.addEventListener('pointerdown', e => {
+  if(!S.src || S.cropping || e.button !== 0) return;
+  if(e.target.closest('.zoom')) return;
+  if(!stage.classList.contains('is-grab')) return;
+  pan = {x:e.clientX, y:e.clientY, l:stage.scrollLeft, t:stage.scrollTop};
+  stage.classList.add('is-grabbing');
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove', e => {
+  if(!pan) return;
+  stage.scrollLeft = pan.l - (e.clientX - pan.x);
+  stage.scrollTop  = pan.t - (e.clientY - pan.y);
+});
+['pointerup','pointercancel'].forEach(ev => stage.addEventListener(ev, () => {
+  pan = null;
+  stage.classList.remove('is-grabbing');
+}));
+
+/* drop + paste */
+['dragenter','dragover'].forEach(ev => stage.addEventListener(ev, e => {
+  e.preventDefault();
+  stage.classList.add('is-over');
+}));
+['dragleave','drop'].forEach(ev => stage.addEventListener(ev, e => {
+  e.preventDefault();
+  stage.classList.remove('is-over');
+}));
+stage.addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+window.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(const it of items){
+    if(it.type.startsWith('image/')){
+      const f = it.getAsFile();
+      if(f){ loadFile(f); e.preventDefault(); return; }
+    }
+  }
+});
+
+/* ══ camera data ════════════════════════════════════════════
+   A canvas export is re-encoded from raw pixels, so every JPEG
+   this app writes starts life with no EXIF at all. If the file we
+   opened had a header, we lift its APP1 segment across whole —
+   with three corrections, because copying it verbatim is wrong:
+
+     · orientation is reset to 1. The rotation flag was already
+       applied to the pixels on load, so leaving it set would make
+       every EXIF-aware viewer rotate the photo a second time.
+     · the recorded pixel dimensions are rewritten to match export.
+     · the embedded thumbnail is dropped — it still shows the
+       unedited frame, and a preview that contradicts the image is
+       worse than no preview.
+
+   Everything is patched in place. Rewriting the TIFF block from
+   scratch would mean re-deriving every internal offset, and a
+   subtly wrong header is harder to notice than a missing one. */
+
+function findApp1(bytes){
+  if(bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
+  let p = 2;
+  while(p + 4 < bytes.length){
+    if(bytes[p] !== 0xFF) return null;
+    const marker = bytes[p+1];
+    if(marker === 0xD8 || (marker >= 0xD0 && marker <= 0xD9)){ p += 2; continue; }
+    if(marker === 0xDA) return null;                  // scan data — headers are done
+    const len = (bytes[p+2] << 8) | bytes[p+3];
+    if(len < 2) return null;
+    if(marker === 0xE1 && bytes[p+4] === 0x45 && bytes[p+5] === 0x78 &&
+       bytes[p+6] === 0x69 && bytes[p+7] === 0x66)    // 'Exif'
+      return bytes.slice(p, p + 2 + len);
+    p += 2 + len;
+  }
+  return null;
+}
+
+/* Locate the TIFF block inside an APP1 segment: 4 bytes of marker
+   and length, then 'Exif\0\0', then a little- or big-endian header. */
+function tiff(seg){
+  const t = 10;
+  if(seg.length < t + 8) return null;
+  const dv = new DataView(seg.buffer, seg.byteOffset, seg.byteLength);
+  const bo = dv.getUint16(t);
+  if(bo !== 0x4949 && bo !== 0x4D4D) return null;
+  const le = bo === 0x4949;
+  if(dv.getUint16(t + 2, le) !== 0x2A) return null;
+  const ifd0 = dv.getUint32(t + 4, le);
+  if(ifd0 + 2 > seg.length - t) return null;
+  return {dv, t, le, ifd0};
+}
+
+const GPS_TAG = 0x8825, EXIF_TAG = 0x8769, ORIENT_TAG = 0x0112;
+
+function exifHasGps(seg){
+  const f = tiff(seg);
+  if(!f) return false;
+  const n = f.dv.getUint16(f.t + f.ifd0, f.le);
+  for(let i = 0; i < n; i++)
+    if(f.dv.getUint16(f.t + f.ifd0 + 2 + i*12, f.le) === GPS_TAG) return true;
+  return false;
+}
+
+function patchExif(seg, w, h, keepGps){
+  const f = tiff(seg);
+  if(!f) return null;
+  const {dv, t, le, ifd0} = f;
+  const u16 = o => dv.getUint16(t + o, le), u32 = o => dv.getUint32(t + o, le);
+  const s16 = (o,v) => dv.setUint16(t + o, v, le);
+  const s32 = (o,v) => dv.setUint32(t + o, v, le);
+
+  const n = u16(ifd0);
+  const entry = i => ifd0 + 2 + i * 12;
+  if(entry(n) + 4 > seg.length - t) return null;
+
+  let exifIfd = 0, gpsAt = -1;
+  for(let i = 0; i < n; i++){
+    const e = entry(i), tag = u16(e);
+    if(tag === ORIENT_TAG) s16(e + 8, 1);
+    else if(tag === EXIF_TAG) exifIfd = u32(e + 8);
+    else if(tag === GPS_TAG) gpsAt = i;
+  }
+
+  if(exifIfd && exifIfd + 2 < seg.length - t){
+    const m = u16(exifIfd);
+    for(let i = 0; i < m; i++){
+      const e = exifIfd + 2 + i * 12;
+      if(e + 12 > seg.length - t) break;
+      const tag = u16(e);
+      if(tag === 0xA002 || tag === 0xA003){
+        const v = tag === 0xA002 ? w : h;
+        if(u16(e + 2) === 3) s16(e + 8, Math.min(65535, v)); else s32(e + 8, v);
+      }
+    }
+  }
+
+  s32(entry(n), 0);                          // no thumbnail IFD
+
+  if(!keepGps && gpsAt >= 0){
+    // Entries hold absolute offsets, so shifting them down disturbs
+    // nothing else; the 12 trailing bytes are simply left orphaned.
+    seg.copyWithin(t + entry(gpsAt), t + entry(gpsAt + 1), t + entry(n) + 4);
+    s16(ifd0, n - 1);
+  }
+  return seg;
+}
+
+async function withExif(blob, w, h, keepGps){
+  const seg = patchExif(S.exif.slice(), w, h, keepGps);
+  if(!seg) return blob;
+  const jpg = new Uint8Array(await blob.arrayBuffer());
+  if(jpg[0] !== 0xFF || jpg[1] !== 0xD8) return blob;
+  const out = new Uint8Array(jpg.length + seg.length);
+  out.set(jpg.subarray(0, 2), 0);            // APP1 goes straight after SOI
+  out.set(seg, 2);
+  out.set(jpg.subarray(2), 2 + seg.length);
+  return new Blob([out], {type:'image/jpeg'});
+}
+
+/* JPEG has no alpha channel, so exporting a transparent image to it
+   silently fills the clear areas. Worth knowing before, not after —
+   but only worth the scan for formats that can carry alpha. */
+function scanAlpha(c){
+  const x = c.getContext('2d', {willReadFrequently:true});
+  const BAND = 2048;
+  for(let y = 0; y < c.height; y += BAND){
+    const rows = Math.min(BAND, c.height - y);
+    const d = x.getImageData(0, y, c.width, rows).data;
+    for(let i = 3; i < d.length; i += 4) if(d[i] < 255) return true;
+  }
+  return false;
+}
+
+/* ══ export ═════════════════════════════════════════════════ */
+
+function exDims(){
+  if(!S.src) return [0,0];
+  const k = +$('exS').value / 100;
+  return [Math.max(1, Math.round(S.src.width*k)), Math.max(1, Math.round(S.src.height*k))];
+}
+function refreshDlg(){
+  if(!S.src) return;
+  const fmt = $('exFmt').value;
+  $('qRow').style.visibility = fmt === 'image/png' ? 'hidden' : 'visible';
+  $('qNum').textContent = $('exQ').value;
+  $('sNum').textContent = $('exS').value + '%';
+  const [w,h] = exDims();
+  $('exDims').textContent = w + ' × ' + h + ' px';
+
+  $('exResRow').hidden = w >= S.src.width;
+  $('exMetaRow').hidden = !(S.exif && fmt === 'image/jpeg');
+  $('exGpsWrap').hidden = !S.gps;
+
+  const flatten = S.alpha && fmt === 'image/jpeg';
+  $('exWarn').hidden = !flatten;
+  if(flatten) $('exWarn').textContent =
+    'This image has transparent areas. JPEG cannot store them, so they will be filled with white — export as PNG or WebP to keep them clear.';
+}
+['input','change'].forEach(ev => {
+  $('exQ').addEventListener(ev, refreshDlg);
+  $('exS').addEventListener(ev, refreshDlg);
+  $('exFmt').addEventListener(ev, refreshDlg);
+});
+
+function openExport(){
+  if(!S.src) return;
+  endCrop();
+  refreshDlg();
+  dlg.returnValue = '';
+  dlg.showModal();
+}
+$('export').addEventListener('click', openExport);
+$('exName').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); dlg.close('go'); }
+});
+dlg.addEventListener('close', () => { if(dlg.returnValue === 'go') runExport(); });
+
+async function runExport(){
+  const [w,h] = exDims();
+  const fmt = $('exFmt').value;
+  const q = +$('exQ').value / 100;
+  const fine = !$('exResRow').hidden && $('exRes').checked && w < S.src.width;
+  const jpg = fmt === 'image/jpeg';
+  toast('Rendering ' + w + ' × ' + h + (fine ? ' — resampling…' : '…'));
+  await new Promise(r => setTimeout(r, 30));   // let the toast paint first
+
+  let from = null;
+  if(fine){
+    try {
+      from = await lanczos(S.src, w, h,
+        f => { $('toast').textContent = 'Resampling… ' + Math.round(f * 100) + '%'; });
+    } catch(e){ from = null; }        // fall back to the plain draw
+  }
+
+  const c = canvasOf(w, h);
+  const ctx = c.getContext('2d', {willReadFrequently:true});
+  try {
+    drawInto(ctx, w, h, S.adj, from);
+    if(jpg && S.alpha){                        // JPEG can't hold the clear areas
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+  } catch(err){
+    toast('The export ran out of memory at that size. Try a smaller percentage.', true);
+    return;
+  }
+
+  let blob = await new Promise(res =>
+    c.toBlob(res, fmt, fmt === 'image/png' ? undefined : q));
+  if(!blob){ toast("This browser couldn't write that format. Try PNG or JPEG.", true); return; }
+
+  if(jpg && S.exif && !$('exMetaRow').hidden && $('exMeta').checked){
+    // A file with no EXIF beats a file with a broken header, so this
+    // failing quietly is the right outcome.
+    try { blob = await withExif(blob, w, h, $('exGps').checked); } catch(e){}
+  }
+
+  const ext = fmt === 'image/png' ? 'png' : fmt === 'image/webp' ? 'webp' : 'jpg';
+  const name = ($('exName').value.trim() || 'photo').replace(/\.[^.]+$/, '');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.' + ext;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  const kb = blob.size / 1024;
+  const kept = jpg && S.exif && $('exMeta').checked && !$('exMetaRow').hidden;
+  toast('Exported ' + a.download + ' · ' +
+        (kb > 900 ? (kb/1024).toFixed(1) + ' MB' : Math.round(kb) + ' KB') +
+        (kept ? ' · camera data kept' : ''));
+}
+
+/* ══ keyboard ═══════════════════════════════════════════════ */
+
+const typing = el => el && (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
+
+window.addEventListener('keydown', e => {
+  if(dlg.open) return;
+  const mod = e.metaKey || e.ctrlKey;
+
+  if(mod && e.key.toLowerCase() === 's'){ e.preventDefault(); openExport(); return; }
+  if(mod && e.key.toLowerCase() === 'z'){
+    e.preventDefault();
+    step(e.shiftKey ? 1 : -1);
+    return;
+  }
+  if(mod) return;
+  if(e.key === '\\'){ if(!e.repeat) holdOn(); return; }
+  if(typing(document.activeElement) && e.key !== 'Escape') return;
+
+  switch(e.key){
+    case 'Escape': if(S.cropping) endCrop(); break;
+    case 'Enter': if(S.cropping) applyCrop(); break;
+    case 'c': case 'C': if(S.src) (S.cropping ? endCrop() : startCrop()); break;
+    case '[': rotate(-1); break;
+    case ']': rotate(1); break;
+    case 'f': case 'F': setFit(); break;
+    case '1': if(S.src) setZoom(1); break;
+    case '+': case '=': if(S.src) setZoom(zoomNow()*1.25); break;
+    case '-': case '_': if(S.src) setZoom(zoomNow()/1.25); break;
+  }
+});
+window.addEventListener('keyup', e => { if(e.key === '\\') holdOff(); });
+
+/* ══ misc ═══════════════════════════════════════════════════ */
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if(S.src && S.fit) render(); else if(S.cropping) layoutCrop(); }, 90);
+});
+
+window.addEventListener('beforeunload', e => {
+  if(S.src && S.histAt > 0){ e.preventDefault(); e.returnValue = ''; }
+});
+
+/* size the histogram canvas to its box, once fonts settle */
+function sizeScope(){
+  const r = scope.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(200, Math.round(r.width * dpr));
+  const h = Math.max(60, Math.round(r.height * dpr));
+  if(scope.width !== w || scope.height !== h){ scope.width = w; scope.height = h; drawScope(); }
+}
+if(!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)){
+  document.querySelectorAll('.btn kbd').forEach(k => {
+    k.textContent = k.textContent.replace('⌘', 'Ctrl+');
+  });
+  ['undo','redo'].forEach(id => {
+    $(id).title = $(id).title.replace('⌘', 'Ctrl+').replace('⇧', 'Shift+');
+  });
+}
+
+window.addEventListener('resize', sizeScope);
+sizeScope();
+syncAll();
+updateChrome();
+</script>
+</body>
+</html>
