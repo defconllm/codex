@@ -676,7 +676,7 @@
          and only emits a console warning per frame -- if this is ever served over
          HTTP, add frame-ancestors via an HTTP header instead. If signed commits ever
          break under CSP, the inlined OpenPGP build may need 'wasm-unsafe-eval'. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-XPUT2f3oqb7hEpAT0RDEizUGkM+6S7eJsuzpB3rGyhA=' 'sha256-Pz80nJAIUkUxBW0VF54uAp4+0pT8RV9e1gsKgUSO4Jc=' 'sha256-AMBZHoPlq42Fx4eTl6pm002afwmHEwh9pZLyPdOQDBQ=' 'sha256-4WNjEBU8HxPeQw0DgxtbtSC1SZbTvXgF2un7NvX/Dmc=' 'sha256-g4/I/hbKP4qZmoZHutfhiXeEidAxCK7Bn7F/FAsnz18='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://gitlab.com https://raw.githubusercontent.com; frame-src blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types default;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-XPUT2f3oqb7hEpAT0RDEizUGkM+6S7eJsuzpB3rGyhA=' 'sha256-Pz80nJAIUkUxBW0VF54uAp4+0pT8RV9e1gsKgUSO4Jc=' 'sha256-AMBZHoPlq42Fx4eTl6pm002afwmHEwh9pZLyPdOQDBQ=' 'sha256-4WNjEBU8HxPeQw0DgxtbtSC1SZbTvXgF2un7NvX/Dmc=' 'sha256-CD9aMNHwcEMcSIkXpVP+W/A4y39qrhO0HB8uVGxOlTI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://gitlab.com https://raw.githubusercontent.com; frame-src blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types default;">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4076,7 +4076,7 @@ const Kh=BigInt(0),Ch=BigInt(1),Dh=BigInt(2);function Uh(e){const t=($o(r=e,{adj
     }
     const CONFIG = {
         storagePrefix: 'rogue-git',
-        version: '2.17.46',
+        version: '2.17.50',
         buildTime: '2026-07-24T00:00:00Z',
         maxFileSize: 25 * 1024 * 1024,
         commitMessageMaxLength: 72,
@@ -9321,6 +9321,35 @@ const Kh=BigInt(0),Ch=BigInt(1),Dh=BigInt(2);function Uh(e){const t=($o(r=e,{adj
             // 2b. Add delete entries
             for(const delPath of deletePaths) {
                 treeItems.push({ path: delPath, mode: '100644', type: 'blob', sha: null });
+            }
+
+            /* DEL-01: order the entries before they are packed.
+
+               DELETES FIRST. Sub-batches chain through base_tree (PERF-13) and are packed
+               by byte size (PERF-16) -- and a delete carries no content, so it weighs ~80
+               bytes and always fell into the LAST batch, whose base_tree is an intermediate
+               tree the deletion was never computed against. That is what
+               GitRPC::BadObjectState reports. The first sub-batch's base_tree IS the HEAD
+               tree, so applying deletions there applies them to the state they came from.
+
+               A PATH'S ENTRIES STAY TOGETHER. If a path is both deleted and re-added, the
+               two entries must be in one request or the server sees two unrelated
+               operations against different base trees instead of one net change. Grouping
+               by path and keeping a group contiguous makes the packer place them together;
+               the packer's only splitting rule is a byte budget, and a group of two entries
+               for one path is never large enough to be split by it. */
+            if(deletePaths.length) {
+                const byPath = new Map();
+                for(const e of treeItems) {
+                    if(!byPath.has(e.path)) byPath.set(e.path, []);
+                    byPath.get(e.path).push(e);
+                }
+                const deletedFirst = [], rest = [];
+                for(const [, group] of byPath) {
+                    (group.some(e => e.sha === null) ? deletedFirst : rest).push(...group);
+                }
+                treeItems.length = 0;
+                treeItems.push(...deletedFirst, ...rest);
             }
 
             // 3. Create tree with base_tree to preserve existing files
@@ -14766,7 +14795,14 @@ ${repo.description ? Utils.escapeHtml(repo.description) : 'A new repository.'}</
                     // for it, it was previously downloaded and the user deleted it locally —
                     // stage a deletion to push. NotFoundError only, so permission/transient
                     // read errors are never mistaken for a deletion.
-                    if(e && e.name === 'NotFoundError' && pullShas[file.path]) {
+                    /* DEL-02: `pullShas[file.path]` proves the file was downloaded once, but it
+                       is only populated by a completed pull -- so a repo attached without
+                       pulling, or one whose tree fetch failed, detected NO deletions at all.
+                       Being in the REMOTE TREE is the same evidence: the file exists remotely,
+                       the local read said NotFoundError, so it is gone locally. Still
+                       NotFoundError only, so a permission or transient error can never be read
+                       as a deletion. */
+                    if(e && e.name === 'NotFoundError' && (pullShas[file.path] || file.path)) {
                         const delKey = `${repo.id}:::${file.path}`;
                         const existingDel = State.getFileEdit(delKey);
                         if(!(existingDel && (existingDel.isNew || existingDel.deleted))) {
@@ -14776,11 +14812,16 @@ ${repo.description ? Utils.escapeHtml(repo.description) : 'A new repository.'}</
                                 modified: true,
                                 deleted: true
                             };
+                            // DEL-02: remembered so a matching new file can be paired as a MOVE.
+                            if(pullShas[file.path]) _deletedShas.set(pullShas[file.path], file.path);
                             deleted++;
                         }
                     }
                 }
             };
+
+            const _deletedShas = new Map();   // DEL-02: remote sha -> path, for move pairing
+            const _newShas = new Map();       // MOVE-01: new local path -> content sha
 
             for(let i = 0; i < filesToScan.length; i += SCAN_BATCH) {
                 const batch = filesToScan.slice(i, i + SCAN_BATCH);
@@ -14818,6 +14859,12 @@ ${repo.description ? Utils.escapeHtml(repo.description) : 'A new repository.'}</
                                 // Past the damage check, so this file really is going
                                 // to be staged and the encode is earned.
                                 State.fileEdits[editKey] = { original: '', current: local.content, modified: true, isNew: true, isBinary: local.isBinary };
+                                /* MOVE-01: hashed so it can be paired against a deletion of the
+                                   same content. Empty files are skipped -- they all hash alike,
+                                   so a match would prove nothing. */
+                                if(local.bytes && local.bytes.length) {
+                                    try { _newShas.set(localPath, await _self._gitBlobSha(local.bytes)); } catch(_) {}
+                                }
                                 const parts = localPath.split('/');
                                 if(!State.fileTree.find(f => f.path === localPath)) {
                                     for(let j = 1; j < parts.length; j++) {
@@ -14834,6 +14881,39 @@ ${repo.description ? Utils.escapeHtml(repo.description) : 'A new repository.'}</
                     }));
                 }
             } catch(e) { dbg.warn('Local file listing failed:', e); }
+
+            /* MOVE-01: pair deletions against new files by content hash. Runs here, after
+               both loops, because they are batched and concurrent -- deciding whether a
+               match is UNIQUE needs the complete set on both sides.
+
+               Only a one-to-one match counts. A hash matching several deleted files, or
+               several new files, is ambiguous and is left as delete + add: a missed move
+               costs some history, a wrong move deletes a file the user never asked to
+               delete. Every ambiguous case declines. */
+            if(_deletedShas.size && _newShas.size) {
+                const newBySha = new Map();
+                for(const [path, sha] of _newShas) {
+                    if(!newBySha.has(sha)) newBySha.set(sha, []);
+                    newBySha.get(sha).push(path);
+                }
+                let moves = 0;
+                for(const [sha, oldPath] of _deletedShas) {
+                    const candidates = newBySha.get(sha);
+                    if(!candidates || candidates.length !== 1) continue;   // ambiguous -> decline
+                    const newPath = candidates[0];
+                    const newKey = `${repo.id}:::${newPath}`;
+                    const oldKey = `${repo.id}:::${oldPath}`;
+                    const newEdit = State.fileEdits[newKey];
+                    if(!newEdit || newEdit._renamedFrom) continue;
+                    newEdit._renamedFrom = oldPath;      // CommitPlan.build routes this into deletePaths
+                    delete State.fileEdits[oldKey];      // the deletion is now part of the move
+                    newBySha.delete(sha);                // consumed: one deletion, one new file
+                    deleted--;
+                    moves++;
+                    dbg.log(`Scan: detected move ${oldPath} -> ${newPath}`);
+                }
+                if(moves) addLog(`${moves} file(s) detected as moved rather than deleted+added`, 'ok');
+            }
 
             if(changed || added || deleted) {
                 State.saveEdits();
@@ -17335,8 +17415,22 @@ ${repo.description ? Utils.escapeHtml(repo.description) : 'A new repository.'}</
                 }
             } else {
                 // ── UNSIGNED: use Git Data API for atomic batch commit ──
-                if(files.length === 1 && !deletePaths.length) {
-                    // Single file — use Contents API (simpler, auto-creates branches)
+                /* SIZE-02: route by what the path can CARRY, not by how many files there are.
+                   The Contents API caps writes at 1 MB; the Git Data path in the next branch
+                   handles 100 MB. Choosing on count alone meant a lone 1.4 MB image was
+                   rejected with advice the user could not act on -- "push it as part of a
+                   batch commit" is not a choice they get to make. Under the cap the shortcut
+                   is still right: simpler, and it auto-creates branches. */
+                const CONTENTS_WRITE_CAP = 1024 * 1024;
+                const soloBytes = (() => {
+                    const c = files.length === 1 ? files[0].content : null;
+                    if(typeof c !== 'string') return 0;
+                    const at = c.startsWith('data:') ? c.indexOf(';base64,') : -1;
+                    return at >= 0 ? Math.floor((c.length - at - 8) * 3 / 4)
+                                   : new TextEncoder().encode(c).length;
+                })();
+                if(files.length === 1 && !deletePaths.length && soloBytes <= CONTENTS_WRITE_CAP) {
+                    // Single file within the cap — use Contents API (simpler, auto-creates branches)
                     btn.textContent = `${isPush ? 'Pushing' : 'Committing'} 1 file...`;
                     UI.showActivity(`${isPush ? 'Pushing' : 'Committing'} 1 file...`);
                     await API.createCommit(targetRepo.owner, targetRepo.name, State.currentBranch, files[0].path, files[0].content, msg, targetRepo.isGitLab);
